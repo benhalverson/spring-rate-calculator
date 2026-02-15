@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { computeDavg, computeK, validateInputs } from "./springRate";
+import {
+	computeDavg,
+	computeK,
+	computePhysicalK,
+	getSpringSteelShearModulus,
+	SPRING_STEEL_G_IN,
+	SPRING_STEEL_G_MM,
+	validateInputs,
+} from "./springRate";
 
 describe("computeDavg", () => {
 	it("computes Davg as D - d", () => {
@@ -16,6 +24,28 @@ describe("computeK", () => {
 		const expected = d ** 4 / (8 * n * Davg ** 3);
 
 		expect(computeK(d, n, Davg)).toBeCloseTo(expected, 12);
+	});
+});
+
+describe("computePhysicalK", () => {
+	it("computes physical spring rate with k = (G * d^4) / (8 * n * Davg^3)", () => {
+		const G = SPRING_STEEL_G_MM;
+		const d = 1.2;
+		const n = 6;
+		const Davg = 9.3;
+		const expected = (G * d ** 4) / (8 * n * Davg ** 3);
+
+		expect(computePhysicalK(G, d, n, Davg)).toBeCloseTo(expected, 12);
+	});
+});
+
+describe("getSpringSteelShearModulus", () => {
+	it("returns metric spring steel shear modulus for mm", () => {
+		expect(getSpringSteelShearModulus("mm")).toBe(SPRING_STEEL_G_MM);
+	});
+
+	it("returns imperial spring steel shear modulus for in", () => {
+		expect(getSpringSteelShearModulus("in")).toBe(SPRING_STEEL_G_IN);
 	});
 });
 

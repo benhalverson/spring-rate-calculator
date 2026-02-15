@@ -125,24 +125,46 @@ export function SpringViz({ k, d, D, n, units }: SpringVizProps) {
 			<div className="spring-viz-stage">
 				<svg viewBox="0 0 320 300" role="img" aria-label="Animated spring">
 					<title>Animated spring</title>
-					<rect x="34" y="10" width="252" height="16" rx="3" className="spring-plate" />
-					<rect x="34" y="266" width="252" height="16" rx="3" className="spring-plate" />
+					<rect
+						x="34"
+						y="10"
+						width="252"
+						height="16"
+						rx="3"
+						className="spring-plate"
+					/>
+					<rect
+						x="34"
+						y="266"
+						width="252"
+						height="16"
+						rx="3"
+						className="spring-plate"
+					/>
 					<motion.g
 						animate={controls}
 						style={{ transformOrigin: "50% 14%" }}
 						initial={{ scaleY: baseScaleY }}
 					>
-						<path d={coilPath} className="spring-coil" vectorEffect="non-scaling-stroke" />
+						<path
+							d={coilPath}
+							className="spring-coil"
+							vectorEffect="non-scaling-stroke"
+						/>
 					</motion.g>
 				</svg>
 			</div>
 
 			<div className="spring-viz-metrics">
 				<p>
-					Stiffness profile: <strong>{kNorm < 0.34 ? "Soft" : kNorm > 0.67 ? "Stiff" : "Medium"}</strong>
+					Stiffness profile:{" "}
+					<strong>
+						{kNorm < 0.34 ? "Soft" : kNorm > 0.67 ? "Stiff" : "Medium"}
+					</strong>
 				</p>
 				<p>
-					d: {format(d, 2)} {units} · D: {format(D, 2)} {units} · n: {format(n, 2)}
+					d: {format(d, 2)} {units} · D: {format(D, 2)} {units} · n:{" "}
+					{format(n, 2)}
 				</p>
 			</div>
 
@@ -158,6 +180,10 @@ export function SpringViz({ k, d, D, n, units }: SpringVizProps) {
 				/>
 				<output htmlFor="load-slider">{loadPct}%</output>
 			</div>
+			<p className="load-note">
+				{loadPct}% is the simulated visual load level. It affects spring
+				compression only and does not change the `k` calculation.
+			</p>
 		</section>
 	);
 }

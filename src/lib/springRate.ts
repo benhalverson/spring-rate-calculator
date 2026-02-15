@@ -1,4 +1,26 @@
-import type { ValidationResult } from "../types/spring";
+import type { Units, ValidationResult } from "../types/spring";
+
+/**
+ * Default shear modulus for spring steel in metric units.
+ * Unit: `N/mm^2`
+ */
+export const SPRING_STEEL_G_MM = 79_000;
+
+/**
+ * Default shear modulus for spring steel in imperial units.
+ * Unit: `psi`
+ */
+export const SPRING_STEEL_G_IN = 11_500_000;
+
+/**
+ * Returns spring-steel shear modulus for the selected geometry unit system.
+ *
+ * @param units - Geometry unit label (`mm` or `in`).
+ * @returns Shear modulus `G` in `N/mm^2` for `mm`, or `psi` for `in`.
+ */
+export const getSpringSteelShearModulus = (units: Units): number => {
+	return units === "mm" ? SPRING_STEEL_G_MM : SPRING_STEEL_G_IN;
+};
 
 /**
  * Computes the mean spring diameter from outer diameter and wire diameter.
@@ -23,6 +45,25 @@ export const computeDavg = (D: number, d: number): number => D - d;
  */
 export const computeK = (d: number, n: number, Davg: number): number => {
 	return d ** 4 / (8 * n * Davg ** 3);
+};
+
+/**
+ * Computes physical spring rate using shear modulus:
+ * `k = (G * d^4) / (8 * n * Davg^3)`
+ *
+ * @param G - Shear modulus in `N/mm^2` (metric) or `psi` (imperial).
+ * @param d - Wire diameter.
+ * @param n - Number of active coils.
+ * @param Davg - Mean spring diameter, typically `D - d`.
+ * @returns Physical spring rate (`N/mm` for metric inputs, `lbf/in` for imperial inputs).
+ */
+export const computePhysicalK = (
+	G: number,
+	d: number,
+	n: number,
+	Davg: number,
+): number => {
+	return (G * d ** 4) / (8 * n * Davg ** 3);
 };
 
 /**
