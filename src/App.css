@@ -155,6 +155,15 @@
 	font-size: 0.95rem;
 }
 
+.field-grid textarea {
+	padding: 0.56rem 0.7rem;
+	border-radius: 8px;
+	border: 1px solid #c7d1e5;
+	background: #fbfcff;
+	font-size: 0.95rem;
+	resize: vertical;
+}
+
 .field-grid input[aria-invalid="true"] {
 	border-color: #d24f4f;
 	background: #fff6f6;
@@ -334,31 +343,49 @@
 	align-items: center;
 }
 
-.saved-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
+.saved-table-wrap {
+	overflow-x: auto;
+	padding: 0.5rem 0.75rem 0.85rem;
 }
 
-.saved-item {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 0.7rem 1rem;
-	border-top: 1px solid #e6eaf3;
-	gap: 0.7rem;
-}
-
-.saved-main p {
-	margin: 0.1rem 0;
-	font-size: 0.9rem;
+.saved-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.85rem;
 	color: #2f3e5a;
 }
 
-.saved-time {
+.saved-table th,
+.saved-table td {
+	padding: 0.5rem 0.45rem;
+	border-top: 1px solid #e6eaf3;
+	text-align: left;
+	vertical-align: top;
+	white-space: nowrap;
+}
+
+.saved-table th {
+	font-size: 0.8rem;
+	color: #4f5d7a;
 	font-weight: 700;
-	font-size: 0.82rem;
-	color: #506181;
+	background: #f9fbff;
+	position: sticky;
+	top: 0;
+	z-index: 1;
+}
+
+.k-sort-col {
+	min-width: 7.2rem;
+}
+
+.k-sort-btn {
+	border: 1px solid #c7d1e5;
+	border-radius: 8px;
+	padding: 0.25rem 0.5rem;
+	font-size: 0.75rem;
+	font-weight: 700;
+	color: #24406b;
+	background: #fff;
 }
 
 .saved-item-actions {
@@ -416,10 +443,5 @@
 
 	.status-pill {
 		font-size: 0.75rem;
-	}
-
-	.saved-item {
-		flex-direction: column;
-		align-items: flex-start;
 	}
 }

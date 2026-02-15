@@ -61,15 +61,13 @@ const formatShearModulus = (value: number): string => {
 	});
 };
 
-const formatTimestamp = (epochMs: number): string => {
-	return new Date(epochMs).toLocaleString();
-};
-
 const emptyValidation: ValidationResult = {
 	ok: false,
 	errors: {},
 	warnings: {},
 };
+
+type KSortDirection = "none" | "asc" | "desc";
 
 /**
  * Primary calculator page that includes inputs, spring animation, and saved history.
@@ -78,6 +76,10 @@ export function SpringRateCalculator() {
 	const [dInput, setWireInput] = useState("");
 	const [DInput, setOuterInput] = useState("");
 	const [nInput, setNInput] = useState("");
+	const [manufacturerInput, setManufacturerInput] = useState("");
+	const [partNumberInput, setPartNumberInput] = useState("");
+	const [purchaseUrlInput, setPurchaseUrlInput] = useState("");
+	const [notesInput, setNotesInput] = useState("");
 	const [units, setUnits] = useState<Units>("mm");
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [warnings, setWarnings] = useState<Record<string, string>>({});
@@ -86,12 +88,17 @@ export function SpringRateCalculator() {
 	const [toast, setToast] = useState<string | null>(null);
 	const [isConfirmingClearAll, setIsConfirmingClearAll] = useState(false);
 	const [invalidSaveAttempted, setInvalidSaveAttempted] = useState(false);
+	const [kSortDirection, setKSortDirection] = useState<KSortDirection>("none");
 	const [deferredInstallPrompt, setDeferredInstallPrompt] =
 		useState<BeforeInstallPromptEvent | null>(null);
 
 	const parsedD = parseNumber(dInput);
 	const parsedDOuter = parseNumber(DInput);
 	const parsedN = parseNumber(nInput);
+	const normalizedManufacturer = manufacturerInput.trim();
+	const normalizedPartNumber = partNumberInput.trim();
+	const normalizedPurchaseUrl = purchaseUrlInput.trim();
+	const normalizedNotes = notesInput.trim();
 	const springSteelG = getSpringSteelShearModulus(units);
 
 	const derivedDavg = useMemo(() => {
@@ -124,7 +131,24 @@ export function SpringRateCalculator() {
 		return computePhysicalK(springSteelG, parsedD, parsedN, derivedDavg);
 	}, [computedValidation.ok, derivedDavg, parsedD, parsedN, springSteelG]);
 
-	const canSave = computedValidation.ok && computedK !== undefined;
+	const hasRequiredSourceDetails =
+		normalizedManufacturer.length > 0 && normalizedPartNumber.length > 0;
+	const canSave =
+		computedValidation.ok &&
+		computedK !== undefined &&
+		hasRequiredSourceDetails;
+
+	const displayedHistory = useMemo(() => {
+		if (kSortDirection === "none") {
+			return history;
+		}
+
+		const sorted = [...history].sort((a, b) => {
+			return kSortDirection === "asc" ? a.k - b.k : b.k - a.k;
+		});
+
+		return sorted;
+	}, [history, kSortDirection]);
 
 	useEffect(() => {
 		void (async () => {
@@ -179,6 +203,19 @@ export function SpringRateCalculator() {
 		if (parsedN === undefined) {
 			nextErrors.n = "Active coils n is required.";
 		}
+		if (!normalizedManufacturer) {
+			nextErrors.manufacturer = "Manufacturer is required.";
+		}
+		if (!normalizedPartNumber) {
+			nextErrors.partNumber = "Part number is required.";
+		}
+		if (normalizedPurchaseUrl) {
+			try {
+				new URL(normalizedPurchaseUrl);
+			} catch {
+				nextErrors.purchaseUrl = "Purchase URL must be a valid URL.";
+			}
+		}
 
 		if (Object.keys(nextErrors).length > 0) {
 			return { ok: false, errors: nextErrors, warnings: {} };
@@ -214,6 +251,10 @@ export function SpringRateCalculator() {
 		const record: SpringCalcRecord = {
 			id: crypto.randomUUID(),
 			createdAt: Date.now(),
+			manufacturer: normalizedManufacturer,
+			partNumber: normalizedPartNumber,
+			purchaseUrl: normalizedPurchaseUrl || undefined,
+			notes: normalizedNotes || undefined,
 			units,
 			d: parsedD,
 			D: parsedDOuter,
@@ -231,6 +272,10 @@ export function SpringRateCalculator() {
 		setWireInput("");
 		setOuterInput("");
 		setNInput("");
+		setManufacturerInput("");
+		setPartNumberInput("");
+		setPurchaseUrlInput("");
+		setNotesInput("");
 		setErrors({});
 		setWarnings({});
 		setToast("Inputs reset.");
@@ -240,6 +285,10 @@ export function SpringRateCalculator() {
 		setWireInput(String(record.d));
 		setOuterInput(String(record.D));
 		setNInput(String(record.n));
+		setManufacturerInput(record.manufacturer ?? "");
+		setPartNumberInput(record.partNumber ?? "");
+		setPurchaseUrlInput(record.purchaseUrl ?? "");
+		setNotesInput(record.notes ?? "");
 		setUnits(record.units);
 		setErrors({});
 		setWarnings({});
@@ -274,6 +323,25 @@ export function SpringRateCalculator() {
 		await deferredInstallPrompt.userChoice;
 		setDeferredInstallPrompt(null);
 	};
+
+	const toggleKSort = (): void => {
+		setKSortDirection((current) => {
+			if (current === "none") {
+				return "asc";
+			}
+			if (current === "asc") {
+				return "desc";
+			}
+			return "none";
+		});
+	};
+
+	const kSortLabel =
+		kSortDirection === "none"
+			? "Sort k"
+			: kSortDirection === "asc"
+				? "Sort k ↑"
+				: "Sort k ↓";
 
 	return (
 		<div className="app-shell">
@@ -375,6 +443,64 @@ export function SpringRateCalculator() {
 								<small className="warn-msg">{warnings.n}</small>
 							) : null}
 						</label>
+
+						<label>
+							<span>Manufacturer</span>
+							<input
+								type="text"
+								value={manufacturerInput}
+								onChange={(event) =>
+									setManufacturerInput(event.currentTarget.value)
+								}
+								placeholder="e.g. Team Associated"
+								aria-invalid={Boolean(errors.manufacturer)}
+							/>
+							{errors.manufacturer ? (
+								<small className="error-msg">{errors.manufacturer}</small>
+							) : null}
+						</label>
+
+						<label>
+							<span>Part number</span>
+							<input
+								type="text"
+								value={partNumberInput}
+								onChange={(event) =>
+									setPartNumberInput(event.currentTarget.value)
+								}
+								placeholder="e.g. ASC91322"
+								aria-invalid={Boolean(errors.partNumber)}
+							/>
+							{errors.partNumber ? (
+								<small className="error-msg">{errors.partNumber}</small>
+							) : null}
+						</label>
+
+						<label>
+							<span>Purchase URL (optional)</span>
+							<input
+								type="url"
+								value={purchaseUrlInput}
+								onChange={(event) =>
+									setPurchaseUrlInput(event.currentTarget.value)
+								}
+								placeholder="https://..."
+								aria-invalid={Boolean(errors.purchaseUrl)}
+							/>
+							{errors.purchaseUrl ? (
+								<small className="error-msg">{errors.purchaseUrl}</small>
+							) : null}
+						</label>
+
+						<label>
+							<span>Notes (optional)</span>
+							<textarea
+								rows={2}
+								value={notesInput}
+								onChange={(event) => setNotesInput(event.currentTarget.value)}
+								placeholder="Track/setup notes"
+							/>
+						</label>
 					</div>
 
 					<div className="derived-row">
@@ -451,43 +577,85 @@ export function SpringRateCalculator() {
 						</div>
 					</header>
 
-					{history.length === 0 ? (
+					{displayedHistory.length === 0 ? (
 						<p className="empty-state">
 							No saved calculations yet. Save your results here.
 						</p>
 					) : (
-						<ul className="saved-list">
-							{history.map((record) => (
-								<li key={record.id} className="saved-item">
-									<div className="saved-main">
-										<p className="saved-time">
-											{formatTimestamp(record.createdAt)}
-										</p>
-										<p>
-											d={formatValue(record.d)} · D={formatValue(record.D)} · n=
-											{formatValue(record.n)} · Davg={formatValue(record.Davg)}{" "}
-											· k={formatK(record.k)} {getRateUnitsLabel(record.units)}
-										</p>
-									</div>
-									<div className="saved-item-actions">
-										<button
-											type="button"
-											className="btn"
-											onClick={() => handleLoad(record)}
-										>
-											Load
-										</button>
-										<button
-											type="button"
-											className="btn"
-											onClick={() => handleDelete(record.id)}
-										>
-											Delete
-										</button>
-									</div>
-								</li>
-							))}
-						</ul>
+						<div className="saved-table-wrap">
+							<table className="saved-table">
+								<thead>
+									<tr>
+										<th scope="col">Manufacturer</th>
+										<th scope="col">Part #</th>
+										<th scope="col">d</th>
+										<th scope="col">D</th>
+										<th scope="col">n</th>
+										<th scope="col">Davg</th>
+										<th scope="col" className="k-sort-col">
+											<button
+												type="button"
+												className="k-sort-btn"
+												onClick={toggleKSort}
+												aria-label={`Toggle k sorting, current: ${kSortDirection}`}
+											>
+												{kSortLabel}
+											</button>
+										</th>
+										<th scope="col">Units</th>
+										<th scope="col">Purchase</th>
+										<th scope="col">Notes</th>
+										<th scope="col">Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+									{displayedHistory.map((record) => (
+										<tr key={record.id}>
+											<td>{record.manufacturer}</td>
+											<td>{record.partNumber}</td>
+											<td>{formatValue(record.d)}</td>
+											<td>{formatValue(record.D)}</td>
+											<td>{formatValue(record.n)}</td>
+											<td>{formatValue(record.Davg)}</td>
+											<td>{formatK(record.k)}</td>
+											<td>{getRateUnitsLabel(record.units)}</td>
+											<td>
+												{record.purchaseUrl ? (
+													<a
+														href={record.purchaseUrl}
+														target="_blank"
+														rel="noopener"
+													>
+														Link
+													</a>
+												) : (
+													"—"
+												)}
+											</td>
+											<td>{record.notes || "—"}</td>
+											<td>
+												<div className="saved-item-actions">
+													<button
+														type="button"
+														className="btn"
+														onClick={() => handleLoad(record)}
+													>
+														Load
+													</button>
+													<button
+														type="button"
+														className="btn"
+														onClick={() => handleDelete(record.id)}
+													>
+														Delete
+													</button>
+												</div>
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
 					)}
 				</section>
 			</main>

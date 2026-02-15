@@ -14,6 +14,22 @@ class SpringRateDatabase extends Dexie {
 		this.version(1).stores({
 			calculations: "id, createdAt",
 		});
+		this.version(2)
+			.stores({
+				calculations:
+					"id, createdAt, manufacturer, partNumber, [manufacturer+partNumber]",
+			})
+			.upgrade((transaction) => {
+				return transaction
+					.table("calculations")
+					.toCollection()
+					.modify((record: Partial<SpringCalcRecord>) => {
+						record.manufacturer =
+							record.manufacturer?.trim() || "Unknown manufacturer";
+						record.partNumber =
+							record.partNumber?.trim() || "Unknown part number";
+					});
+			});
 	}
 }
 

@@ -58,11 +58,11 @@ describe("validateInputs", () => {
 		expect(result.warnings).toEqual({});
 	});
 
-	it("blocks d <= 1", () => {
-		const result = validateInputs(1, 10.5, 6);
+	it("blocks d <= 0", () => {
+		const result = validateInputs(0, 10.5, 6);
 
 		expect(result.ok).toBe(false);
-		expect(result.errors.d).toBe("Wire diameter d must be greater than 1.");
+		expect(result.errors.d).toBe("Wire diameter d must be greater than 0.");
 	});
 
 	it("blocks D <= 0", () => {

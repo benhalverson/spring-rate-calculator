@@ -13,6 +13,14 @@ export interface SpringCalcRecord {
 	id: string;
 	/** Creation timestamp in epoch milliseconds. */
 	createdAt: number;
+	/** Spring manufacturer name used for reorder tracking. */
+	manufacturer: string;
+	/** Manufacturer part number used for reorder tracking. */
+	partNumber: string;
+	/** Optional direct purchase link for this spring. */
+	purchaseUrl?: string;
+	/** Optional user note for setup, usage, or fitment context. */
+	notes?: string;
 	/** Unit label selected when the calculation was saved. */
 	units: Units;
 	/** Wire diameter (little d). */
@@ -23,7 +31,7 @@ export interface SpringCalcRecord {
 	n: number;
 	/** Derived average diameter: `Davg = D - d`. */
 	Davg: number;
-	/** Calculated spring rate: `k = d^4 / (8 * n * Davg^3)`. */
+	/** Calculated spring rate: `k = (G * d^4) / (8 * n * Davg^3)`. */
 	k: number;
 }
 

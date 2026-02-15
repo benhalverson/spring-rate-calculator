@@ -71,7 +71,7 @@ export const computePhysicalK = (
  * blocking errors plus non-blocking warnings.
  *
  * Blocking conditions:
- * - `d <= 1`
+ * - `d <= 0`
  * - `D <= 0`
  * - `n <= 0`
  * - `Davg = D - d <= 0`
@@ -94,8 +94,8 @@ export const validateInputs = (
 
 	if (!Number.isFinite(d)) {
 		errors.d = "Wire diameter d must be a valid number.";
-	} else if (d <= 1) {
-		errors.d = "Wire diameter d must be greater than 1.";
+	} else if (d <= 0) {
+		errors.d = "Wire diameter d must be greater than 0.";
 	}
 
 	if (!Number.isFinite(D)) {
