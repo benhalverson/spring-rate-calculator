@@ -1,73 +1,88 @@
-# React + TypeScript + Vite
+# Spring Rate Calculator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Offline-first spring rate calculator for RC/coil spring setup work.
 
-Currently, two official plugins are available:
+Live URL: https://spring-rate-calculator.benhalverson.workers.dev
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+The app lets you enter spring geometry and computes spring rate using the physical coil spring equation with a spring-steel shear modulus assumption:
 
-## React Compiler
+- $D_{avg} = D - d$
+- $k = \dfrac{G \cdot d^4}{8 \cdot n \cdot D_{avg}^3}$
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+## What the app does
 
-## Expanding the ESLint configuration
+- Calculates spring rate from:
+  - wire diameter `d`
+  - coil outer diameter `D`
+  - active coils `n`
+- Supports unit labels (`mm` / `in`) and applies the corresponding spring-steel `G` value.
+- Validates inputs and blocks invalid saves.
+- Includes an animated spring visualizer that changes feel with `k`.
+- Saves calculations locally in IndexedDB (works offline).
+- Provides sortable saved history with load/delete/clear actions.
+- Includes PWA support (service worker + manifest) and install prompt handling.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Tech stack
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- React + TypeScript + Vite
+- Tailwind CSS
+- Dexie (IndexedDB wrapper)
+- Framer Motion
+- Vitest + Testing Library
+- Biome (lint/format)
+- Cloudflare Vite plugin + Wrangler (deployment)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Clone and run locally
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Prerequisites
+
+- Node.js 20+
+- pnpm 10+
+
+### 1) Clone
+
+```bash
+git clone <your-repo-url>
+cd spring-rate-calculator
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2) Install dependencies
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+pnpm install
+```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 3) Start development server
+
+```bash
+pnpm dev
+```
+
+Then open the local URL printed by Vite (usually `http://localhost:5173`).
+
+## Useful scripts
+
+- `pnpm dev` — run local dev server
+- `pnpm build` — type-check + production build
+- `pnpm preview` — preview production build locally
+- `pnpm lint` — run Biome checks
+- `pnpm format` — format source with Biome
+- `pnpm test` — run test suite
+- `pnpm test --coverage` — run tests with coverage
+- `pnpm deploy` — build and deploy with Wrangler
+
+## Deployment
+
+This repo is configured for Cloudflare Workers deployment via Wrangler.
+
+Before first deploy, authenticate Wrangler:
+
+```bash
+pnpm wrangler login
+```
+
+Then deploy:
+
+```bash
+pnpm deploy
 ```
