@@ -86,3 +86,17 @@ Then deploy:
 ```bash
 pnpm deploy
 ```
+
+## CI/CD (GitHub Actions)
+
+This repo includes a CI workflow:
+
+- [.github/workflows/ci.yml](.github/workflows/ci.yml)
+  - Runs on PRs to `main` and pushes to `main`
+  - Executes: lint, test with coverage, build
+
+Deployment is handled by Cloudflare dashboard Git integration (auto-deploy on `main`).
+
+### Recommended branch protection
+
+For `main`, require the `CI` workflow check to pass before merging.

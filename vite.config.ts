@@ -6,7 +6,7 @@ import { defineConfig } from "vitest/config";
 // https://vite.dev/config/
 export default defineConfig({
 	plugins: [
-		cloudflare(),
+		...(process.env.VITEST ? [] : [cloudflare()]),
 		react(),
 		VitePWA({
 			registerType: "autoUpdate",
