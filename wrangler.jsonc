@@ -3,14 +3,9 @@
 	"name": "spring-rate-calculator",
 	"compatibility_date": "2026-02-15",
 	"observability": {
-		"enabled": true,
 		"logs": {
-			"enabled": true,
-			"persist": true
-		},
-		"traces": {
-			"enabled": true,
-			"persist": true
+			"enabled": false,
+			"invocation_logs": true
 		}
 	},
 	"main": "./src/worker.ts",
