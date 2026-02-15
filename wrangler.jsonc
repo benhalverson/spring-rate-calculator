@@ -1,0 +1,11 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "spring-rate-calculator",
+	"compatibility_date": "2026-02-15",
+	"main": "./src/worker.ts",
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS",
+		"not_found_handling": "single-page-application"
+	}
+}
