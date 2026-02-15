@@ -19,67 +19,33 @@ import type {
 	ValidationResult,
 } from "../types/spring";
 import { SpringViz } from "./SpringViz";
+import { CalculatorForm } from "./springCalculator/CalculatorForm";
+import { CalculatorHeader } from "./springCalculator/CalculatorHeader";
+import { SavedCalculationsTable } from "./springCalculator/SavedCalculationsTable";
+import {
+	type BeforeInstallPromptEvent,
+	type CalculatorInputs,
+	EMPTY_VALIDATION,
+	type KSortDirection,
+	parseNumber,
+	toggleKSortDirection,
+} from "./springCalculator/utils";
 
-interface BeforeInstallPromptEvent extends Event {
-	prompt: () => Promise<void>;
-	userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
-
-const parseNumber = (value: string): number | undefined => {
-	if (!value.trim()) {
-		return undefined;
-	}
-	const parsed = Number(value);
-	if (!Number.isFinite(parsed)) {
-		return undefined;
-	}
-	return parsed;
+const EMPTY_INPUTS: CalculatorInputs = {
+	dInput: "",
+	DInput: "",
+	nInput: "",
+	manufacturerInput: "",
+	partNumberInput: "",
+	purchaseUrlInput: "",
+	notesInput: "",
 };
-
-const formatK = (value: number | undefined): string => {
-	if (value === undefined || !Number.isFinite(value)) {
-		return "—";
-	}
-	return value.toLocaleString(undefined, {
-		maximumSignificantDigits: 6,
-	});
-};
-
-const formatValue = (value: number): string => {
-	return value.toLocaleString(undefined, {
-		maximumFractionDigits: 4,
-	});
-};
-
-const getRateUnitsLabel = (units: Units): string => {
-	return units === "mm" ? "N/mm" : "lbf/in";
-};
-
-const formatShearModulus = (value: number): string => {
-	return value.toLocaleString(undefined, {
-		maximumFractionDigits: 0,
-	});
-};
-
-const emptyValidation: ValidationResult = {
-	ok: false,
-	errors: {},
-	warnings: {},
-};
-
-type KSortDirection = "none" | "asc" | "desc";
 
 /**
  * Primary calculator page that includes inputs, spring animation, and saved history.
  */
 export function SpringRateCalculator() {
-	const [dInput, setWireInput] = useState("");
-	const [DInput, setOuterInput] = useState("");
-	const [nInput, setNInput] = useState("");
-	const [manufacturerInput, setManufacturerInput] = useState("");
-	const [partNumberInput, setPartNumberInput] = useState("");
-	const [purchaseUrlInput, setPurchaseUrlInput] = useState("");
-	const [notesInput, setNotesInput] = useState("");
+	const [inputs, setInputs] = useState<CalculatorInputs>(EMPTY_INPUTS);
 	const [units, setUnits] = useState<Units>("mm");
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [warnings, setWarnings] = useState<Record<string, string>>({});
@@ -92,13 +58,13 @@ export function SpringRateCalculator() {
 	const [deferredInstallPrompt, setDeferredInstallPrompt] =
 		useState<BeforeInstallPromptEvent | null>(null);
 
-	const parsedD = parseNumber(dInput);
-	const parsedDOuter = parseNumber(DInput);
-	const parsedN = parseNumber(nInput);
-	const normalizedManufacturer = manufacturerInput.trim();
-	const normalizedPartNumber = partNumberInput.trim();
-	const normalizedPurchaseUrl = purchaseUrlInput.trim();
-	const normalizedNotes = notesInput.trim();
+	const parsedD = parseNumber(inputs.dInput);
+	const parsedDOuter = parseNumber(inputs.DInput);
+	const parsedN = parseNumber(inputs.nInput);
+	const normalizedManufacturer = inputs.manufacturerInput.trim();
+	const normalizedPartNumber = inputs.partNumberInput.trim();
+	const normalizedPurchaseUrl = inputs.purchaseUrlInput.trim();
+	const normalizedNotes = inputs.notesInput.trim();
 	const springSteelG = getSpringSteelShearModulus(units);
 
 	const derivedDavg = useMemo(() => {
@@ -114,7 +80,7 @@ export function SpringRateCalculator() {
 			parsedDOuter === undefined ||
 			parsedN === undefined
 		) {
-			return emptyValidation;
+			return EMPTY_VALIDATION;
 		}
 		return validateInputs(parsedD, parsedDOuter, parsedN);
 	}, [parsedD, parsedDOuter, parsedN]);
@@ -128,6 +94,7 @@ export function SpringRateCalculator() {
 		) {
 			return undefined;
 		}
+
 		return computePhysicalK(springSteelG, parsedD, parsedN, derivedDavg);
 	}, [computedValidation.ok, derivedDavg, parsedD, parsedN, springSteelG]);
 
@@ -149,6 +116,16 @@ export function SpringRateCalculator() {
 
 		return sorted;
 	}, [history, kSortDirection]);
+
+	const setInputValue = (
+		field: keyof CalculatorInputs,
+		value: string,
+	): void => {
+		setInputs((previous) => ({
+			...previous,
+			[field]: value,
+		}));
+	};
 
 	useEffect(() => {
 		void (async () => {
@@ -272,26 +249,22 @@ export function SpringRateCalculator() {
 	};
 
 	const handleReset = (): void => {
-		setWireInput("");
-		setOuterInput("");
-		setNInput("");
-		setManufacturerInput("");
-		setPartNumberInput("");
-		setPurchaseUrlInput("");
-		setNotesInput("");
+		setInputs(EMPTY_INPUTS);
 		setErrors({});
 		setWarnings({});
 		setToast("Inputs reset.");
 	};
 
 	const handleLoad = (record: SpringCalcRecord): void => {
-		setWireInput(String(record.d));
-		setOuterInput(String(record.D));
-		setNInput(String(record.n));
-		setManufacturerInput(record.manufacturer ?? "");
-		setPartNumberInput(record.partNumber ?? "");
-		setPurchaseUrlInput(record.purchaseUrl ?? "");
-		setNotesInput(record.notes ?? "");
+		setInputs({
+			dInput: String(record.d),
+			DInput: String(record.D),
+			nInput: String(record.n),
+			manufacturerInput: record.manufacturer ?? "",
+			partNumberInput: record.partNumber ?? "",
+			purchaseUrlInput: record.purchaseUrl ?? "",
+			notesInput: record.notes ?? "",
+		});
 		setUnits(record.units);
 		setErrors({});
 		setWarnings({});
@@ -328,230 +301,34 @@ export function SpringRateCalculator() {
 	};
 
 	const toggleKSort = (): void => {
-		setKSortDirection((current) => {
-			if (current === "none") {
-				return "asc";
-			}
-			if (current === "asc") {
-				return "desc";
-			}
-			return "none";
-		});
+		setKSortDirection((current) => toggleKSortDirection(current));
 	};
-
-	const kSortLabel =
-		kSortDirection === "none"
-			? "Sort k"
-			: kSortDirection === "asc"
-				? "Sort k ↑"
-				: "Sort k ↓";
 
 	return (
 		<div className="app-shell">
-			<header className="app-bar">
-				<div className="app-title-wrap">
-					<div className="app-logo" aria-hidden="true">
-						≋
-					</div>
-					<h1>Spring Rate</h1>
-				</div>
-
-				<div className="top-controls">
-					<span className={`status-pill ${isOffline ? "offline" : "online"}`}>
-						<span className="dot" aria-hidden="true" />
-						{isOffline ? "Offline (working locally)" : "Online"}
-					</span>
-
-					<fieldset className="units-toggle" aria-label="Units">
-						<legend className="sr-only">Units</legend>
-						<button
-							type="button"
-							className={units === "mm" ? "active" : ""}
-							onClick={() => setUnits("mm")}
-						>
-							mm
-						</button>
-						<button
-							type="button"
-							className={units === "in" ? "active" : ""}
-							onClick={() => setUnits("in")}
-						>
-							in
-						</button>
-					</fieldset>
-
-					{deferredInstallPrompt ? (
-						<button
-							type="button"
-							className="btn tertiary"
-							onClick={handleInstall}
-						>
-							Install
-						</button>
-					) : null}
-				</div>
-			</header>
+			<CalculatorHeader
+				isOffline={isOffline}
+				units={units}
+				onUnitsChange={setUnits}
+				hasInstallPrompt={deferredInstallPrompt !== null}
+				onInstall={handleInstall}
+			/>
 
 			<main className="layout-grid">
-				<section className="card calculator-card">
-					<header className="card-header">
-						<h2>Calculator</h2>
-					</header>
-
-					<div className="field-grid">
-						<label>
-							<span>Wire diameter d</span>
-							<input
-								type="number"
-								inputMode="decimal"
-								value={dInput}
-								onChange={(event) => setWireInput(event.currentTarget.value)}
-								placeholder={`e.g. 1.2 ${units}`}
-								aria-invalid={Boolean(errors.d)}
-							/>
-							{errors.d ? (
-								<small className="error-msg">{errors.d}</small>
-							) : null}
-						</label>
-
-						<label>
-							<span>Coil OD D</span>
-							<input
-								type="number"
-								inputMode="decimal"
-								value={DInput}
-								onChange={(event) => setOuterInput(event.currentTarget.value)}
-								placeholder={`e.g. 10.5 ${units}`}
-								aria-invalid={Boolean(errors.D)}
-							/>
-							{errors.D ? (
-								<small className="error-msg">{errors.D}</small>
-							) : null}
-						</label>
-
-						<label>
-							<span>Active coils n</span>
-							<input
-								type="number"
-								inputMode="decimal"
-								value={nInput}
-								onChange={(event) => setNInput(event.currentTarget.value)}
-								placeholder="e.g. 6"
-								aria-invalid={Boolean(errors.n)}
-							/>
-							{errors.n ? (
-								<small className="error-msg">{errors.n}</small>
-							) : null}
-							{warnings.n ? (
-								<small className="warn-msg">{warnings.n}</small>
-							) : null}
-						</label>
-
-						<label>
-							<span>Manufacturer</span>
-							<input
-								type="text"
-								value={manufacturerInput}
-								onChange={(event) =>
-									setManufacturerInput(event.currentTarget.value)
-								}
-								placeholder="e.g. Team Associated"
-								aria-invalid={Boolean(errors.manufacturer)}
-							/>
-							{errors.manufacturer ? (
-								<small className="error-msg">{errors.manufacturer}</small>
-							) : null}
-						</label>
-
-						<label>
-							<span>Part number</span>
-							<input
-								type="text"
-								value={partNumberInput}
-								onChange={(event) =>
-									setPartNumberInput(event.currentTarget.value)
-								}
-								placeholder="e.g. ASC91322"
-								aria-invalid={Boolean(errors.partNumber)}
-							/>
-							{errors.partNumber ? (
-								<small className="error-msg">{errors.partNumber}</small>
-							) : null}
-						</label>
-
-						<label>
-							<span>Purchase URL (optional)</span>
-							<input
-								type="url"
-								value={purchaseUrlInput}
-								onChange={(event) =>
-									setPurchaseUrlInput(event.currentTarget.value)
-								}
-								placeholder="https://..."
-								aria-invalid={Boolean(errors.purchaseUrl)}
-							/>
-							{errors.purchaseUrl ? (
-								<small className="error-msg">{errors.purchaseUrl}</small>
-							) : null}
-						</label>
-
-						<label>
-							<span>Notes (optional)</span>
-							<textarea
-								rows={2}
-								value={notesInput}
-								onChange={(event) => setNotesInput(event.currentTarget.value)}
-								placeholder="Track/setup notes"
-							/>
-						</label>
-					</div>
-
-					<div className="derived-row">
-						Davg = D − d ={" "}
-						{derivedDavg === undefined
-							? "—"
-							: `${formatValue(derivedDavg)} ${units}`}
-					</div>
-					{errors.Davg ? (
-						<small className="error-msg">{errors.Davg}</small>
-					) : null}
-
-					<motion.div
-						className="result-panel"
-						initial={{ opacity: 0.7, scale: 0.985 }}
-						animate={
-							computedK === undefined
-								? { opacity: 0.7, scale: 0.985 }
-								: { opacity: 1, scale: 1 }
-						}
-					>
-						<p className="result-title">
-							Spring rate: <strong>{formatK(computedK)}</strong>
-							{computedK !== undefined ? ` ${getRateUnitsLabel(units)}` : ""}
-						</p>
-						<p className="formula">k = (G · d⁴) / (8 · n · Davg³)</p>
-						<p className="formula">
-							Assuming spring steel: G = {formatShearModulus(springSteelG)}{" "}
-							{units === "mm" ? "N/mm²" : "psi"}
-						</p>
-					</motion.div>
-
-					<p className="units-note">Use consistent units for d and D.</p>
-
-					<div className={`actions ${invalidSaveAttempted ? "shake" : ""}`}>
-						<button
-							type="button"
-							className="btn primary"
-							disabled={!canSave}
-							onClick={handleSave}
-						>
-							Save
-						</button>
-						<button type="button" className="btn" onClick={handleReset}>
-							Reset
-						</button>
-					</div>
-				</section>
+				<CalculatorForm
+					values={inputs}
+					units={units}
+					errors={errors}
+					warnings={warnings}
+					derivedDavg={derivedDavg}
+					computedK={computedK}
+					springSteelG={springSteelG}
+					invalidSaveAttempted={invalidSaveAttempted}
+					canSave={canSave}
+					onValueChange={setInputValue}
+					onSave={handleSave}
+					onReset={handleReset}
+				/>
 
 				<SpringViz
 					k={computedK}
@@ -561,106 +338,16 @@ export function SpringRateCalculator() {
 					units={units}
 				/>
 
-				<section className="card saved-card">
-					<header className="card-header">
-						<h2>Saved</h2>
-						<div className="saved-actions">
-							<button
-								type="button"
-								className="btn tertiary"
-								onClick={handleClearAll}
-							>
-								{isConfirmingClearAll ? "Confirm clear" : "Clear all"}
-							</button>
-							{isConfirmingClearAll ? (
-								<button type="button" className="btn" onClick={cancelClearAll}>
-									Cancel
-								</button>
-							) : null}
-						</div>
-					</header>
-
-					{displayedHistory.length === 0 ? (
-						<p className="empty-state">
-							No saved calculations yet. Save your results here.
-						</p>
-					) : (
-						<div className="saved-table-wrap">
-							<table className="saved-table">
-								<thead>
-									<tr>
-										<th scope="col">Manufacturer</th>
-										<th scope="col">Part #</th>
-										<th scope="col">d</th>
-										<th scope="col">D</th>
-										<th scope="col">n</th>
-										<th scope="col">Davg</th>
-										<th scope="col" className="k-sort-col">
-											<button
-												type="button"
-												className="k-sort-btn"
-												onClick={toggleKSort}
-												aria-label={`Toggle k sorting, current: ${kSortDirection}`}
-											>
-												{kSortLabel}
-											</button>
-										</th>
-										<th scope="col">Units</th>
-										<th scope="col">Purchase</th>
-										<th scope="col">Notes</th>
-										<th scope="col">Actions</th>
-									</tr>
-								</thead>
-								<tbody>
-									{displayedHistory.map((record) => (
-										<tr key={record.id}>
-											<td>{record.manufacturer}</td>
-											<td>{record.partNumber}</td>
-											<td>{formatValue(record.d)}</td>
-											<td>{formatValue(record.D)}</td>
-											<td>{formatValue(record.n)}</td>
-											<td>{formatValue(record.Davg)}</td>
-											<td>{formatK(record.k)}</td>
-											<td>{getRateUnitsLabel(record.units)}</td>
-											<td>
-												{record.purchaseUrl ? (
-													<a
-														href={record.purchaseUrl}
-														target="_blank"
-														rel="noopener"
-													>
-														Link
-													</a>
-												) : (
-													"—"
-												)}
-											</td>
-											<td>{record.notes || "—"}</td>
-											<td>
-												<div className="saved-item-actions">
-													<button
-														type="button"
-														className="btn"
-														onClick={() => handleLoad(record)}
-													>
-														Load
-													</button>
-													<button
-														type="button"
-														className="btn"
-														onClick={() => handleDelete(record.id)}
-													>
-														Delete
-													</button>
-												</div>
-											</td>
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
-					)}
-				</section>
+				<SavedCalculationsTable
+					records={displayedHistory}
+					isConfirmingClearAll={isConfirmingClearAll}
+					kSortDirection={kSortDirection}
+					onToggleSort={toggleKSort}
+					onClearAll={handleClearAll}
+					onCancelClearAll={cancelClearAll}
+					onLoad={handleLoad}
+					onDelete={handleDelete}
+				/>
 			</main>
 
 			<AnimatePresence>
