@@ -1,7 +1,18 @@
 import type { SpringCalcRecord } from "../../types/spring";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "../ui/table";
 import {
 	formatK,
 	formatValue,
+	getKSortLabel,
 	getRateUnitsLabel,
 	type KSortDirection,
 } from "./utils";
@@ -21,19 +32,6 @@ interface SavedCalculationsTableProps {
 }
 
 /**
- * Returns the display label for the `k` column sort toggle.
- */
-const getSortLabel = (direction: KSortDirection): string => {
-	if (direction === "none") {
-		return "Sort k";
-	}
-	if (direction === "asc") {
-		return "Sort k ↑";
-	}
-	return "Sort k ↓";
-};
-
-/**
  * Renders persisted calculations in a sortable data table with row actions.
  */
 export function SavedCalculationsTable({
@@ -47,105 +45,126 @@ export function SavedCalculationsTable({
 	onDelete,
 }: SavedCalculationsTableProps) {
 	return (
-		<section className="card saved-card">
-			<header className="card-header">
-				<h2>Saved</h2>
-				<div className="saved-actions">
-					<button
+		<Card className="md:col-span-2">
+			<CardHeader className="flex-row items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+				<CardTitle className="text-[1.05rem] text-slate-700 dark:text-slate-100">
+					Saved
+				</CardTitle>
+				<div className="inline-flex items-center gap-2">
+					<Button
 						type="button"
-						className="btn tertiary"
+						variant="outline"
+						size="sm"
+						className="h-8 bg-slate-50 text-blue-600 dark:bg-slate-800 dark:text-blue-300"
 						onClick={() => void onClearAll()}
 					>
 						{isConfirmingClearAll ? "Confirm clear" : "Clear all"}
-					</button>
+					</Button>
 					{isConfirmingClearAll ? (
-						<button type="button" className="btn" onClick={onCancelClearAll}>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							className="h-8"
+							onClick={onCancelClearAll}
+						>
 							Cancel
-						</button>
+						</Button>
 					) : null}
 				</div>
-			</header>
+			</CardHeader>
 
 			{records.length === 0 ? (
-				<p className="empty-state">
-					No saved calculations yet. Save your results here.
-				</p>
+				<CardContent className="px-4 py-4">
+					<p className="text-sm text-slate-600 dark:text-slate-300">
+						No saved calculations yet. Save your results here.
+					</p>
+				</CardContent>
 			) : (
-				<div className="saved-table-wrap">
-					<table className="saved-table">
-						<thead>
-							<tr>
-								<th scope="col">Manufacturer</th>
-								<th scope="col">Part #</th>
-								<th scope="col">d</th>
-								<th scope="col">D</th>
-								<th scope="col">n</th>
-								<th scope="col">Davg</th>
-								<th scope="col" className="k-sort-col">
-									<button
-										type="button"
-										className="k-sort-btn"
-										onClick={onToggleSort}
-										aria-label={`Toggle k sorting, current: ${kSortDirection}`}
-									>
-										{getSortLabel(kSortDirection)}
-									</button>
-								</th>
-								<th scope="col">Units</th>
-								<th scope="col">Purchase</th>
-								<th scope="col">Notes</th>
-								<th scope="col">Actions</th>
-							</tr>
-						</thead>
-						<tbody>
-							{records.map((record) => (
-								<tr key={record.id}>
-									<td>{record.manufacturer}</td>
-									<td>{record.partNumber}</td>
-									<td>{formatValue(record.d)}</td>
-									<td>{formatValue(record.D)}</td>
-									<td>{formatValue(record.n)}</td>
-									<td>{formatValue(record.Davg)}</td>
-									<td>{formatK(record.k)}</td>
-									<td>{getRateUnitsLabel(record.units)}</td>
-									<td>
-										{record.purchaseUrl ? (
-											<a
-												href={record.purchaseUrl}
-												target="_blank"
-												rel="noopener"
-											>
-												Link
-											</a>
-										) : (
-											"—"
-										)}
-									</td>
-									<td>{record.notes || "—"}</td>
-									<td>
-										<div className="saved-item-actions">
-											<button
-												type="button"
-												className="btn"
-												onClick={() => onLoad(record)}
-											>
-												Load
-											</button>
-											<button
-												type="button"
-												className="btn"
-												onClick={() => void onDelete(record.id)}
-											>
-												Delete
-											</button>
-										</div>
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				</div>
+				<CardContent className="px-4 py-4">
+					<div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
+						<Table>
+							<TableHeader>
+								<TableRow className="bg-slate-50 dark:bg-slate-900">
+									<TableHead scope="col">Manufacturer</TableHead>
+									<TableHead scope="col">Part #</TableHead>
+									<TableHead scope="col">d</TableHead>
+									<TableHead scope="col">D</TableHead>
+									<TableHead scope="col">n</TableHead>
+									<TableHead scope="col">Davg</TableHead>
+									<TableHead scope="col" className="min-w-28">
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											className="h-7"
+											onClick={onToggleSort}
+											aria-label={`Toggle k sorting, current: ${kSortDirection}`}
+										>
+											{getKSortLabel(kSortDirection)}
+										</Button>
+									</TableHead>
+									<TableHead scope="col">Units</TableHead>
+									<TableHead scope="col">Purchase</TableHead>
+									<TableHead scope="col">Notes</TableHead>
+									<TableHead scope="col">Actions</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{records.map((record) => (
+									<TableRow key={record.id} className="text-[0.9rem]">
+										<TableCell>{record.manufacturer}</TableCell>
+										<TableCell>{record.partNumber}</TableCell>
+										<TableCell>{formatValue(record.d)}</TableCell>
+										<TableCell>{formatValue(record.D)}</TableCell>
+										<TableCell>{formatValue(record.n)}</TableCell>
+										<TableCell>{formatValue(record.Davg)}</TableCell>
+										<TableCell>{formatK(record.k)}</TableCell>
+										<TableCell>{getRateUnitsLabel(record.units)}</TableCell>
+										<TableCell>
+											{record.purchaseUrl ? (
+												<a
+													className="text-blue-500 underline-offset-2 hover:underline"
+													href={record.purchaseUrl}
+													target="_blank"
+													rel="noopener"
+												>
+													Link
+												</a>
+											) : (
+												"—"
+											)}
+										</TableCell>
+										<TableCell>{record.notes || "—"}</TableCell>
+										<TableCell>
+											<div className="inline-flex flex-wrap gap-2">
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													className="h-7"
+													onClick={() => onLoad(record)}
+												>
+													Load
+												</Button>
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													className="h-7"
+													onClick={() => void onDelete(record.id)}
+												>
+													Delete
+												</Button>
+											</div>
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					</div>
+				</CardContent>
 			)}
-		</section>
+		</Card>
 	);
 }

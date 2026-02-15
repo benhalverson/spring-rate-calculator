@@ -47,6 +47,7 @@ const EMPTY_INPUTS: CalculatorInputs = {
 export function SpringRateCalculator() {
 	const [inputs, setInputs] = useState<CalculatorInputs>(EMPTY_INPUTS);
 	const [units, setUnits] = useState<Units>("mm");
+	const [isDarkMode, setIsDarkMode] = useState(true);
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [warnings, setWarnings] = useState<Record<string, string>>({});
 	const [history, setHistory] = useState<SpringCalcRecord[]>([]);
@@ -133,6 +134,21 @@ export function SpringRateCalculator() {
 			setHistory(records);
 		})();
 	}, []);
+
+	useEffect(() => {
+		const storedTheme = window.localStorage.getItem("spring-rate-theme");
+		const shouldUseDark = storedTheme !== "light";
+		setIsDarkMode(shouldUseDark);
+		document.documentElement.classList.toggle("dark", shouldUseDark);
+	}, []);
+
+	useEffect(() => {
+		document.documentElement.classList.toggle("dark", isDarkMode);
+		window.localStorage.setItem(
+			"spring-rate-theme",
+			isDarkMode ? "dark" : "light",
+		);
+	}, [isDarkMode]);
 
 	useEffect(() => {
 		const online = () => setIsOffline(false);
@@ -304,56 +320,64 @@ export function SpringRateCalculator() {
 		setKSortDirection((current) => toggleKSortDirection(current));
 	};
 
+	const handleThemeToggle = (): void => {
+		setIsDarkMode((current) => !current);
+	};
+
 	return (
-		<div className="app-shell">
-			<CalculatorHeader
-				isOffline={isOffline}
-				units={units}
-				onUnitsChange={setUnits}
-				hasInstallPrompt={deferredInstallPrompt !== null}
-				onInstall={handleInstall}
-			/>
-
-			<main className="layout-grid">
-				<CalculatorForm
-					values={inputs}
+		<div className="mx-auto w-full max-w-[1120px] px-4 py-6 md:px-6 md:py-8">
+			<div className="rounded-2xl border border-[#d7ddea] bg-[#eef2f8] p-4 shadow-[0_8px_28px_rgba(23,40,79,0.12)] dark:border-slate-700/80 dark:bg-slate-900/70 dark:shadow-[0_16px_40px_rgba(2,6,23,0.5)]">
+				<CalculatorHeader
+					isOffline={isOffline}
 					units={units}
-					errors={errors}
-					warnings={warnings}
-					derivedDavg={derivedDavg}
-					computedK={computedK}
-					springSteelG={springSteelG}
-					invalidSaveAttempted={invalidSaveAttempted}
-					canSave={canSave}
-					onValueChange={setInputValue}
-					onSave={handleSave}
-					onReset={handleReset}
+					isDarkMode={isDarkMode}
+					onUnitsChange={setUnits}
+					onThemeToggle={handleThemeToggle}
+					hasInstallPrompt={deferredInstallPrompt !== null}
+					onInstall={handleInstall}
 				/>
 
-				<SpringViz
-					k={computedK}
-					d={parsedD}
-					D={parsedDOuter}
-					n={parsedN}
-					units={units}
-				/>
+				<main className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+					<CalculatorForm
+						values={inputs}
+						units={units}
+						errors={errors}
+						warnings={warnings}
+						derivedDavg={derivedDavg}
+						computedK={computedK}
+						springSteelG={springSteelG}
+						invalidSaveAttempted={invalidSaveAttempted}
+						canSave={canSave}
+						onValueChange={setInputValue}
+						onSave={handleSave}
+						onReset={handleReset}
+					/>
 
-				<SavedCalculationsTable
-					records={displayedHistory}
-					isConfirmingClearAll={isConfirmingClearAll}
-					kSortDirection={kSortDirection}
-					onToggleSort={toggleKSort}
-					onClearAll={handleClearAll}
-					onCancelClearAll={cancelClearAll}
-					onLoad={handleLoad}
-					onDelete={handleDelete}
-				/>
-			</main>
+					<SpringViz
+						k={computedK}
+						d={parsedD}
+						D={parsedDOuter}
+						n={parsedN}
+						units={units}
+					/>
+
+					<SavedCalculationsTable
+						records={displayedHistory}
+						isConfirmingClearAll={isConfirmingClearAll}
+						kSortDirection={kSortDirection}
+						onToggleSort={toggleKSort}
+						onClearAll={handleClearAll}
+						onCancelClearAll={cancelClearAll}
+						onLoad={handleLoad}
+						onDelete={handleDelete}
+					/>
+				</main>
+			</div>
 
 			<AnimatePresence>
 				{toast ? (
 					<motion.div
-						className="toast"
+						className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
 						initial={{ opacity: 0, y: 10 }}
 						animate={{ opacity: 1, y: 0 }}
 						exit={{ opacity: 0, y: 8 }}

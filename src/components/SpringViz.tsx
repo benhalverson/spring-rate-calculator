@@ -2,6 +2,7 @@ import { motion, useAnimationControls } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 
 import type { Units } from "../types/spring";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
 interface SpringVizProps {
 	k?: number;
@@ -118,72 +119,80 @@ export function SpringViz({ k, d, D, n, units }: SpringVizProps) {
 	}, [baseScaleY, controls, damping, k, maxCompression, stiffness]);
 
 	return (
-		<section className="card spring-viz-card" aria-label="Spring visualizer">
-			<header className="card-header">
-				<h2>Spring Visualizer</h2>
-			</header>
-			<div className="spring-viz-stage">
-				<svg viewBox="0 0 320 300" role="img" aria-label="Animated spring">
-					<title>Animated spring</title>
-					<rect
-						x="34"
-						y="10"
-						width="252"
-						height="16"
-						rx="3"
-						className="spring-plate"
-					/>
-					<rect
-						x="34"
-						y="266"
-						width="252"
-						height="16"
-						rx="3"
-						className="spring-plate"
-					/>
-					<motion.g
-						animate={controls}
-						style={{ transformOrigin: "50% 14%" }}
-						initial={{ scaleY: baseScaleY }}
-					>
-						<path
-							d={coilPath}
-							className="spring-coil"
-							vectorEffect="non-scaling-stroke"
+		<Card aria-label="Spring visualizer">
+			<CardHeader className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+				<CardTitle className="text-[1.05rem] text-slate-700 dark:text-slate-100">
+					Spring Visualizer
+				</CardTitle>
+			</CardHeader>
+			<CardContent className="space-y-3 px-4 pt-4">
+				<div className="rounded-md border border-slate-200 bg-gradient-to-b from-slate-100 to-slate-200 p-2 shadow-inner dark:border-slate-800 dark:from-slate-900 dark:to-slate-800">
+					<svg viewBox="0 0 320 300" role="img" aria-label="Animated spring">
+						<title>Animated spring</title>
+						<rect
+							x="34"
+							y="10"
+							width="252"
+							height="16"
+							rx="3"
+							className="fill-slate-500 dark:fill-slate-400"
 						/>
-					</motion.g>
-				</svg>
-			</div>
+						<rect
+							x="34"
+							y="266"
+							width="252"
+							height="16"
+							rx="3"
+							className="fill-slate-500 dark:fill-slate-400"
+						/>
+						<motion.g
+							animate={controls}
+							style={{ transformOrigin: "50% 14%" }}
+							initial={{ scaleY: baseScaleY }}
+						>
+							<path
+								d={coilPath}
+								className="fill-none stroke-slate-700 stroke-[5] [stroke-linecap:round] [stroke-linejoin:round] dark:stroke-slate-200"
+								vectorEffect="non-scaling-stroke"
+							/>
+						</motion.g>
+					</svg>
+				</div>
 
-			<div className="spring-viz-metrics">
-				<p>
-					Stiffness profile:{" "}
-					<strong>
-						{kNorm < 0.34 ? "Soft" : kNorm > 0.67 ? "Stiff" : "Medium"}
-					</strong>
-				</p>
-				<p>
-					d: {format(d, 2)} {units} · D: {format(D, 2)} {units} · n:{" "}
-					{format(n, 2)}
-				</p>
-			</div>
+				<div className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
+					<p>
+						Stiffness profile:{" "}
+						<strong className="rounded bg-slate-700 px-2 py-0.5 text-slate-100 dark:bg-slate-600">
+							{kNorm < 0.34 ? "Soft" : kNorm > 0.67 ? "Stiff" : "Medium"}
+						</strong>
+					</p>
+					<p>
+						d: {format(d, 2)} {units} · D: {format(D, 2)} {units} · n:{" "}
+						{format(n, 2)}
+					</p>
+				</div>
 
-			<div className="load-control" data-testid="load-control">
-				<label htmlFor="load-slider">Load</label>
-				<input
-					id="load-slider"
-					type="range"
-					min={0}
-					max={100}
-					value={loadPct}
-					onChange={(event) => setLoadPct(Number(event.currentTarget.value))}
-				/>
-				<output htmlFor="load-slider">{loadPct}%</output>
-			</div>
-			<p className="load-note">
-				{loadPct}% is the simulated visual load level. It affects spring
-				compression only and does not change the `k` calculation.
-			</p>
-		</section>
+				<div
+					className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium dark:border-slate-800 dark:bg-slate-900"
+					data-testid="load-control"
+				>
+					<label htmlFor="load-slider">Load</label>
+					<input
+						className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-blue-500 dark:bg-slate-700"
+						id="load-slider"
+						type="range"
+						min={0}
+						max={100}
+						value={loadPct}
+						onChange={(event) => setLoadPct(Number(event.currentTarget.value))}
+					/>
+					<output htmlFor="load-slider">{loadPct}%</output>
+				</div>
+				<p className="text-xs text-slate-600 dark:text-slate-300">
+					{loadPct}% is the simulated visual load level. It affects spring
+					compression only and does not change the `k` calculation.
+				</p>
+			</CardContent>
+		</Card>
 	);
 }

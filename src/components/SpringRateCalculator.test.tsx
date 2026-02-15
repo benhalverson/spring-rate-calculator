@@ -162,7 +162,11 @@ describe("SpringRateCalculator", () => {
 
 		await user.click(screen.getByRole("button", { name: "Delete" }));
 		await expect(listCalculations()).resolves.toHaveLength(0);
-		expect(screen.getByText(/No saved calculations yet/i)).toBeInTheDocument();
+		await waitFor(() => {
+			expect(
+				screen.getByText(/No saved calculations yet/i),
+			).toBeInTheDocument();
+		});
 	});
 
 	it("supports clear-all confirm and cancel flow", async () => {
@@ -205,7 +209,7 @@ describe("SpringRateCalculator", () => {
 			expect(screen.getByText("Online")).toBeInTheDocument();
 		});
 
-		await user.click(screen.getByRole("button", { name: "in" }));
+		await user.click(screen.getByRole("button", { name: /^in$/i }));
 		await fillValidForm(user);
 		expect(
 			screen.getByText(/Assuming spring steel: G = 11,500,000 psi/i),
