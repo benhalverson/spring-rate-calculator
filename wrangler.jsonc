@@ -2,6 +2,17 @@
 	"$schema": "./node_modules/wrangler/config-schema.json",
 	"name": "spring-rate-calculator",
 	"compatibility_date": "2026-02-15",
+	"observability": {
+		"enabled": true,
+		"logs": {
+			"enabled": true,
+			"persist": true
+		},
+		"traces": {
+			"enabled": true,
+			"persist": true
+		}
+	},
 	"main": "./src/worker.ts",
 	"assets": {
 		"directory": "./dist",
