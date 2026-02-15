@@ -58,6 +58,7 @@ export function SpringRateCalculator() {
 	const [kSortDirection, setKSortDirection] = useState<KSortDirection>("none");
 	const [deferredInstallPrompt, setDeferredInstallPrompt] =
 		useState<BeforeInstallPromptEvent | null>(null);
+	const [isIosSafari, setIsIosSafari] = useState(false);
 
 	const parsedD = parseNumber(inputs.dInput);
 	const parsedDOuter = parseNumber(inputs.DInput);
@@ -183,6 +184,17 @@ export function SpringRateCalculator() {
 				handleBeforeInstallPrompt,
 			);
 		};
+	}, []);
+
+	useEffect(() => {
+		const userAgent = window.navigator.userAgent;
+		const isIOSDevice =
+			/iPad|iPhone|iPod/.test(userAgent) ||
+			(window.navigator.platform === "MacIntel" &&
+				window.navigator.maxTouchPoints > 1);
+		const isSafariBrowser =
+			/Safari/.test(userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(userAgent);
+		setIsIosSafari(isIOSDevice && isSafariBrowser);
 	}, []);
 
 	const runSaveValidation = (): ValidationResult => {
@@ -331,6 +343,7 @@ export function SpringRateCalculator() {
 					isOffline={isOffline}
 					units={units}
 					isDarkMode={isDarkMode}
+					showIosInstallHint={isIosSafari && deferredInstallPrompt === null}
 					onUnitsChange={setUnits}
 					onThemeToggle={handleThemeToggle}
 					hasInstallPrompt={deferredInstallPrompt !== null}

@@ -11,6 +11,8 @@ export default defineConfig({
 		VitePWA({
 			registerType: "autoUpdate",
 			includeAssets: [
+				"icons/icon-32.png",
+				"icons/apple-touch-icon.png",
 				"icons/icon-192.png",
 				"icons/icon-512.png",
 				"icons/maskable-192.png",
@@ -25,23 +27,23 @@ export default defineConfig({
 				background_color: "#eef2f8",
 				icons: [
 					{
-						src: "/icons/icon-192.png",
+						src: "/icons/icon-192.png?v=20260215",
 						sizes: "192x192",
 						type: "image/png",
 					},
 					{
-						src: "/icons/icon-512.png",
+						src: "/icons/icon-512.png?v=20260215",
 						sizes: "512x512",
 						type: "image/png",
 					},
 					{
-						src: "/icons/maskable-192.png",
+						src: "/icons/maskable-192.png?v=20260215",
 						sizes: "192x192",
 						type: "image/png",
 						purpose: "maskable",
 					},
 					{
-						src: "/icons/maskable-512.png",
+						src: "/icons/maskable-512.png?v=20260215",
 						sizes: "512x512",
 						type: "image/png",
 						purpose: "maskable",

@@ -11,6 +11,7 @@ interface CalculatorHeaderProps {
 	isOffline: boolean;
 	units: Units;
 	isDarkMode: boolean;
+	showIosInstallHint: boolean;
 	onUnitsChange: (units: Units) => void;
 	onThemeToggle: () => void;
 	hasInstallPrompt: boolean;
@@ -24,6 +25,7 @@ export function CalculatorHeader({
 	isOffline,
 	units,
 	isDarkMode,
+	showIosInstallHint,
 	onUnitsChange,
 	onThemeToggle,
 	hasInstallPrompt,
@@ -109,6 +111,11 @@ export function CalculatorHeader({
 					) : null}
 				</div>
 			</div>
+			{showIosInstallHint ? (
+				<p className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+					On iPhone: tap Share, then Add to Home Screen.
+				</p>
+			) : null}
 		</header>
 	);
 }
