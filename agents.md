@@ -9,8 +9,11 @@ The user must fill in:
 - **D**: coil outer diameter (OD) (big D)
 - **n**: number of active coils (N / active coils)
 
-## Formula (given)
-- **k = d^4 / (8 · n · Davg^3)**
+## Formula (implemented)
+- **k = (G · d^4) / (8 · n · Davg^3)**
+- Spring steel shear modulus assumption:
+  - **G = 79,000 N/mm²** when units are `mm`
+  - **G = 11,500,000 psi** when units are `in`
 
 ### Davg (derived)
 User provides **OD (D)**. Derive:
@@ -19,17 +22,22 @@ User provides **OD (D)**. Derive:
 UI must display Davg explicitly as: `Davg = D − d`.
 
 ## Units
-This calculator is **unit-consistent** (no material modulus included in this formula).
+This calculator is **unit-consistent** with a fixed spring-steel modulus assumption applied per selected unit system.
 - Provide a **units selector**: `mm` / `in`
 - Units toggle affects **labels only** (no automatic conversion required)
 - Display note: “Use consistent units for d and D.”
 
 ## Validation Rules
 Block calculation and saving (show inline errors) if any are true:
-- d <= 1
+- d <= 0
 - D <= 0
 - n <= 0
 - Davg = (D − d) <= 0  (i.e., D must be greater than d)
+
+Additional save-time validation:
+- Manufacturer is required
+- Part number is required
+- Purchase URL must be a valid URL when provided
 
 Optional warning (non-blocking):
 - n is not an integer → “Active coils is typically an integer.”
@@ -45,9 +53,12 @@ Single-page layout with three sections:
 - **Online/Offline** status pill using `navigator.onLine`
 - Units segmented toggle: `mm | in`
 - Optional “Install” button (only when available)
+- Theme toggle: dark/light
+- iOS Safari install guidance text (Share → Add to Home Screen)
 
 ### Calculator Card
 - Inputs: d, D (OD), n (decimals allowed)
+- Source details: manufacturer (required), part number (required), purchase URL (optional), notes (optional)
 - Derived row: `Davg = D − d = ...`
 - Result panel: `k = ...` (only when valid; otherwise show “—”)
 - Buttons: **Save** (disabled unless valid), **Reset**
@@ -75,6 +86,8 @@ Create: `src/lib/springRate.ts`
 Exports:
 - `computeDavg(D: number, d: number): number`
 - `computeK(d: number, n: number, Davg: number): number`
+- `computePhysicalK(G: number, d: number, n: number, Davg: number): number`
+- `getSpringSteelShearModulus(units: "mm" | "in"): number`
 - `validateInputs(d: number, D: number, n: number): { ok: boolean; errors: Record<string,string>; warnings: Record<string,string> }`
 
 Notes:
@@ -84,8 +97,8 @@ Notes:
 ### 2) IndexedDB wrapper
 Create: `src/lib/db.ts`
 
-Recommended dependency:
-- `idb` (small, ergonomic)
+Dependency used:
+- `Dexie`
 
 DB:
 - Name: `spring-rate-db`
@@ -144,7 +157,7 @@ State (strings for better input UX):
 Derived:
 - parse to numbers safely
 - `Davg = D - d` (when parseable)
-- `k = d^4 / (8 * n * Davg^3)` (only when valid)
+- `k = (G * d^4) / (8 * n * Davg^3)` (only when valid)
 
 Lifecycle:
 - On mount: `listCalculations()` → set history
@@ -238,7 +251,7 @@ PWA:
 - Auto-update enabled
 
 Calculator:
-- Correct k computation using given formula
+- Correct k computation using implemented formula with spring-steel `G`
 - Davg shown explicitly
 - Validation blocks invalid values
 - Save disabled when invalid
