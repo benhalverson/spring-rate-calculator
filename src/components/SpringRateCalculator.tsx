@@ -240,7 +240,10 @@ export function SpringRateCalculator() {
 		if (
 			!validation.ok ||
 			computedK === undefined ||
-			derivedDavg === undefined
+			derivedDavg === undefined ||
+			parsedD === undefined ||
+			parsedDOuter === undefined ||
+			parsedN === undefined
 		) {
 			setInvalidSaveAttempted(true);
 			setToast("Fix validation errors before saving.");
