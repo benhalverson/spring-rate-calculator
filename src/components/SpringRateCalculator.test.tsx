@@ -13,6 +13,36 @@ const fillValidForm = async (user: ReturnType<typeof userEvent.setup>) => {
 	await user.type(screen.getByLabelText("Part number"), "ASC91322");
 };
 
+const createCalculation = async (
+	user: ReturnType<typeof userEvent.setup>,
+	options: {
+		wireDiameter: string;
+		coilOD: string;
+		activeCoils: string;
+		manufacturer: string;
+		partNumber: string;
+	},
+) => {
+	const wireDiameterInput = screen.getByLabelText("Wire diameter d");
+	const coilODInput = screen.getByLabelText("Coil OD D");
+	const activeCoilsInput = screen.getByLabelText("Active coils n");
+	const manufacturerInput = screen.getByLabelText("Manufacturer");
+	const partNumberInput = screen.getByLabelText("Part number");
+
+	await user.clear(wireDiameterInput);
+	await user.clear(coilODInput);
+	await user.clear(activeCoilsInput);
+	await user.clear(manufacturerInput);
+	await user.clear(partNumberInput);
+
+	await user.type(wireDiameterInput, options.wireDiameter);
+	await user.type(coilODInput, options.coilOD);
+	await user.type(activeCoilsInput, options.activeCoils);
+	await user.type(manufacturerInput, options.manufacturer);
+	await user.type(partNumberInput, options.partNumber);
+	await user.click(screen.getByRole("button", { name: "Save" }));
+};
+
 describe("SpringRateCalculator", () => {
 	beforeEach(async () => {
 		await clearCalculations();
@@ -269,27 +299,22 @@ describe("SpringRateCalculator", () => {
 		const user = userEvent.setup();
 		render(<SpringRateCalculator />);
 
-		// Save first calculation
-		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
-		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
-		await user.type(screen.getByLabelText("Active coils n"), "6");
-		await user.type(screen.getByLabelText("Manufacturer"), "MFG-A");
-		await user.type(screen.getByLabelText("Part number"), "PN-A");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		// Save two calculations
+		await createCalculation(user, {
+			wireDiameter: "1.2",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-A",
+			partNumber: "PN-A",
+		});
 
-		// Save second calculation
-		await user.clear(screen.getByLabelText("Wire diameter d"));
-		await user.clear(screen.getByLabelText("Coil OD D"));
-		await user.clear(screen.getByLabelText("Active coils n"));
-		await user.clear(screen.getByLabelText("Manufacturer"));
-		await user.clear(screen.getByLabelText("Part number"));
-
-		await user.type(screen.getByLabelText("Wire diameter d"), "1.8");
-		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
-		await user.type(screen.getByLabelText("Active coils n"), "6");
-		await user.type(screen.getByLabelText("Manufacturer"), "MFG-B");
-		await user.type(screen.getByLabelText("Part number"), "PN-B");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await createCalculation(user, {
+			wireDiameter: "1.8",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-B",
+			partNumber: "PN-B",
+		});
 
 		await waitFor(async () => {
 			await expect(listCalculations()).resolves.toHaveLength(2);
@@ -329,25 +354,21 @@ describe("SpringRateCalculator", () => {
 		render(<SpringRateCalculator />);
 
 		// Save two calculations
-		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
-		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
-		await user.type(screen.getByLabelText("Active coils n"), "6");
-		await user.type(screen.getByLabelText("Manufacturer"), "MFG-A");
-		await user.type(screen.getByLabelText("Part number"), "PN-A");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await createCalculation(user, {
+			wireDiameter: "1.2",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-A",
+			partNumber: "PN-A",
+		});
 
-		await user.clear(screen.getByLabelText("Wire diameter d"));
-		await user.clear(screen.getByLabelText("Coil OD D"));
-		await user.clear(screen.getByLabelText("Active coils n"));
-		await user.clear(screen.getByLabelText("Manufacturer"));
-		await user.clear(screen.getByLabelText("Part number"));
-
-		await user.type(screen.getByLabelText("Wire diameter d"), "1.8");
-		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
-		await user.type(screen.getByLabelText("Active coils n"), "6");
-		await user.type(screen.getByLabelText("Manufacturer"), "MFG-B");
-		await user.type(screen.getByLabelText("Part number"), "PN-B");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await createCalculation(user, {
+			wireDiameter: "1.8",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-B",
+			partNumber: "PN-B",
+		});
 
 		await waitFor(async () => {
 			await expect(listCalculations()).resolves.toHaveLength(2);
@@ -393,25 +414,21 @@ describe("SpringRateCalculator", () => {
 		render(<SpringRateCalculator />);
 
 		// Save two calculations
-		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
-		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
-		await user.type(screen.getByLabelText("Active coils n"), "6");
-		await user.type(screen.getByLabelText("Manufacturer"), "MFG-A");
-		await user.type(screen.getByLabelText("Part number"), "PN-A");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await createCalculation(user, {
+			wireDiameter: "1.2",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-A",
+			partNumber: "PN-A",
+		});
 
-		await user.clear(screen.getByLabelText("Wire diameter d"));
-		await user.clear(screen.getByLabelText("Coil OD D"));
-		await user.clear(screen.getByLabelText("Active coils n"));
-		await user.clear(screen.getByLabelText("Manufacturer"));
-		await user.clear(screen.getByLabelText("Part number"));
-
-		await user.type(screen.getByLabelText("Wire diameter d"), "1.8");
-		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
-		await user.type(screen.getByLabelText("Active coils n"), "6");
-		await user.type(screen.getByLabelText("Manufacturer"), "MFG-B");
-		await user.type(screen.getByLabelText("Part number"), "PN-B");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await createCalculation(user, {
+			wireDiameter: "1.8",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-B",
+			partNumber: "PN-B",
+		});
 
 		await waitFor(async () => {
 			await expect(listCalculations()).resolves.toHaveLength(2);
@@ -494,38 +511,29 @@ describe("SpringRateCalculator", () => {
 		render(<SpringRateCalculator />);
 
 		// Save three calculations
-		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
-		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
-		await user.type(screen.getByLabelText("Active coils n"), "6");
-		await user.type(screen.getByLabelText("Manufacturer"), "MFG-A");
-		await user.type(screen.getByLabelText("Part number"), "PN-A");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await createCalculation(user, {
+			wireDiameter: "1.2",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-A",
+			partNumber: "PN-A",
+		});
 
-		await user.clear(screen.getByLabelText("Wire diameter d"));
-		await user.clear(screen.getByLabelText("Coil OD D"));
-		await user.clear(screen.getByLabelText("Active coils n"));
-		await user.clear(screen.getByLabelText("Manufacturer"));
-		await user.clear(screen.getByLabelText("Part number"));
+		await createCalculation(user, {
+			wireDiameter: "1.8",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-B",
+			partNumber: "PN-B",
+		});
 
-		await user.type(screen.getByLabelText("Wire diameter d"), "1.8");
-		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
-		await user.type(screen.getByLabelText("Active coils n"), "6");
-		await user.type(screen.getByLabelText("Manufacturer"), "MFG-B");
-		await user.type(screen.getByLabelText("Part number"), "PN-B");
-		await user.click(screen.getByRole("button", { name: "Save" }));
-
-		await user.clear(screen.getByLabelText("Wire diameter d"));
-		await user.clear(screen.getByLabelText("Coil OD D"));
-		await user.clear(screen.getByLabelText("Active coils n"));
-		await user.clear(screen.getByLabelText("Manufacturer"));
-		await user.clear(screen.getByLabelText("Part number"));
-
-		await user.type(screen.getByLabelText("Wire diameter d"), "2.0");
-		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
-		await user.type(screen.getByLabelText("Active coils n"), "6");
-		await user.type(screen.getByLabelText("Manufacturer"), "MFG-C");
-		await user.type(screen.getByLabelText("Part number"), "PN-C");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await createCalculation(user, {
+			wireDiameter: "2.0",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-C",
+			partNumber: "PN-C",
+		});
 
 		await waitFor(async () => {
 			await expect(listCalculations()).resolves.toHaveLength(3);
@@ -564,38 +572,29 @@ describe("SpringRateCalculator", () => {
 		render(<SpringRateCalculator />);
 
 		// Save three calculations
-		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
-		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
-		await user.type(screen.getByLabelText("Active coils n"), "6");
-		await user.type(screen.getByLabelText("Manufacturer"), "MFG-A");
-		await user.type(screen.getByLabelText("Part number"), "PN-A");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await createCalculation(user, {
+			wireDiameter: "1.2",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-A",
+			partNumber: "PN-A",
+		});
 
-		await user.clear(screen.getByLabelText("Wire diameter d"));
-		await user.clear(screen.getByLabelText("Coil OD D"));
-		await user.clear(screen.getByLabelText("Active coils n"));
-		await user.clear(screen.getByLabelText("Manufacturer"));
-		await user.clear(screen.getByLabelText("Part number"));
+		await createCalculation(user, {
+			wireDiameter: "1.8",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-B",
+			partNumber: "PN-B",
+		});
 
-		await user.type(screen.getByLabelText("Wire diameter d"), "1.8");
-		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
-		await user.type(screen.getByLabelText("Active coils n"), "6");
-		await user.type(screen.getByLabelText("Manufacturer"), "MFG-B");
-		await user.type(screen.getByLabelText("Part number"), "PN-B");
-		await user.click(screen.getByRole("button", { name: "Save" }));
-
-		await user.clear(screen.getByLabelText("Wire diameter d"));
-		await user.clear(screen.getByLabelText("Coil OD D"));
-		await user.clear(screen.getByLabelText("Active coils n"));
-		await user.clear(screen.getByLabelText("Manufacturer"));
-		await user.clear(screen.getByLabelText("Part number"));
-
-		await user.type(screen.getByLabelText("Wire diameter d"), "2.0");
-		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
-		await user.type(screen.getByLabelText("Active coils n"), "6");
-		await user.type(screen.getByLabelText("Manufacturer"), "MFG-C");
-		await user.type(screen.getByLabelText("Part number"), "PN-C");
-		await user.click(screen.getByRole("button", { name: "Save" }));
+		await createCalculation(user, {
+			wireDiameter: "2.0",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-C",
+			partNumber: "PN-C",
+		});
 
 		await waitFor(async () => {
 			await expect(listCalculations()).resolves.toHaveLength(3);
