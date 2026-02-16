@@ -264,4 +264,386 @@ describe("SpringRateCalculator", () => {
 		expect(screen.getByLabelText("Part number")).toHaveValue("");
 		expect(screen.getByLabelText("Notes (optional)")).toHaveValue("");
 	});
+
+	it("selects and deselects individual rows with checkboxes", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		// Save first calculation
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-A");
+		await user.type(screen.getByLabelText("Part number"), "PN-A");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		// Save second calculation
+		await user.clear(screen.getByLabelText("Wire diameter d"));
+		await user.clear(screen.getByLabelText("Coil OD D"));
+		await user.clear(screen.getByLabelText("Active coils n"));
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.8");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-B");
+		await user.type(screen.getByLabelText("Part number"), "PN-B");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(2);
+		});
+
+		// Select first row
+		const firstRowCheckbox = screen.getByRole("checkbox", {
+			name: /Select row for MFG-A PN-A/i,
+		});
+		await user.click(firstRowCheckbox);
+
+		// Selection bar should appear showing 1 selected
+		expect(screen.getByText("1 row selected")).toBeInTheDocument();
+
+		// Select second row
+		const secondRowCheckbox = screen.getByRole("checkbox", {
+			name: /Select row for MFG-B PN-B/i,
+		});
+		await user.click(secondRowCheckbox);
+
+		// Selection bar should now show 2 selected
+		expect(screen.getByText("2 rows selected")).toBeInTheDocument();
+
+		// Deselect first row
+		await user.click(firstRowCheckbox);
+		expect(screen.getByText("1 row selected")).toBeInTheDocument();
+
+		// Deselect second row
+		await user.click(secondRowCheckbox);
+
+		// Selection bar should be gone
+		expect(screen.queryByText(/row selected/i)).not.toBeInTheDocument();
+	});
+
+	it("shows header checkbox in indeterminate state when some rows are selected", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		// Save two calculations
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-A");
+		await user.type(screen.getByLabelText("Part number"), "PN-A");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await user.clear(screen.getByLabelText("Wire diameter d"));
+		await user.clear(screen.getByLabelText("Coil OD D"));
+		await user.clear(screen.getByLabelText("Active coils n"));
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.8");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-B");
+		await user.type(screen.getByLabelText("Part number"), "PN-B");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(2);
+		});
+
+		const headerCheckbox = screen.getByRole("checkbox", {
+			name: "Select all rows",
+		});
+
+		// Initially unchecked and not indeterminate
+		expect(headerCheckbox).not.toBeChecked();
+
+		// Select one row
+		await user.click(
+			screen.getByRole("checkbox", {
+				name: /Select row for MFG-A PN-A/i,
+			}),
+		);
+
+		// Header checkbox should be in indeterminate state (checked but partially)
+		await waitFor(() => {
+			const checkbox = headerCheckbox as HTMLInputElement;
+			expect(checkbox.indeterminate).toBe(true);
+		});
+
+		// Select the other row (all rows selected)
+		await user.click(
+			screen.getByRole("checkbox", {
+				name: /Select row for MFG-B PN-B/i,
+			}),
+		);
+
+		// Header checkbox should now be fully checked
+		await waitFor(() => {
+			expect(headerCheckbox).toBeChecked();
+			const checkbox = headerCheckbox as HTMLInputElement;
+			expect(checkbox.indeterminate).toBe(false);
+		});
+	});
+
+	it("selects and deselects all rows using header checkbox", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		// Save two calculations
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-A");
+		await user.type(screen.getByLabelText("Part number"), "PN-A");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await user.clear(screen.getByLabelText("Wire diameter d"));
+		await user.clear(screen.getByLabelText("Coil OD D"));
+		await user.clear(screen.getByLabelText("Active coils n"));
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.8");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-B");
+		await user.type(screen.getByLabelText("Part number"), "PN-B");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(2);
+		});
+
+		const headerCheckbox = screen.getByRole("checkbox", {
+			name: "Select all rows",
+		});
+
+		// Click header checkbox to select all
+		await user.click(headerCheckbox);
+
+		// Should show 2 rows selected
+		expect(screen.getByText("2 rows selected")).toBeInTheDocument();
+
+		// Both row checkboxes should be checked
+		expect(
+			screen.getByRole("checkbox", {
+				name: /Select row for MFG-A PN-A/i,
+			}),
+		).toBeChecked();
+		expect(
+			screen.getByRole("checkbox", {
+				name: /Select row for MFG-B PN-B/i,
+			}),
+		).toBeChecked();
+
+		// Click header checkbox again to deselect all
+		await user.click(headerCheckbox);
+
+		// Selection bar should be gone
+		expect(screen.queryByText(/row selected/i)).not.toBeInTheDocument();
+
+		// Row checkboxes should be unchecked
+		expect(
+			screen.getByRole("checkbox", {
+				name: /Select row for MFG-A PN-A/i,
+			}),
+		).not.toBeChecked();
+		expect(
+			screen.getByRole("checkbox", {
+				name: /Select row for MFG-B PN-B/i,
+			}),
+		).not.toBeChecked();
+	});
+
+	it("clears selection using the clear selection button", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		// Save a calculation
+		await fillValidForm(user);
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(1);
+		});
+
+		// Select the row
+		const checkbox = screen.getByRole("checkbox", {
+			name: /Select row for Team Associated ASC91322/i,
+		});
+		await user.click(checkbox);
+
+		// Selection bar should appear
+		expect(screen.getByText("1 row selected")).toBeInTheDocument();
+
+		// Click clear selection button
+		await user.click(screen.getByRole("button", { name: "Clear selection" }));
+
+		// Selection bar should be gone
+		expect(screen.queryByText(/row selected/i)).not.toBeInTheDocument();
+
+		// Checkbox should be unchecked
+		expect(checkbox).not.toBeChecked();
+	});
+
+	it("supports bulk delete confirm and cancel flow", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		// Save three calculations
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-A");
+		await user.type(screen.getByLabelText("Part number"), "PN-A");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await user.clear(screen.getByLabelText("Wire diameter d"));
+		await user.clear(screen.getByLabelText("Coil OD D"));
+		await user.clear(screen.getByLabelText("Active coils n"));
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.8");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-B");
+		await user.type(screen.getByLabelText("Part number"), "PN-B");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await user.clear(screen.getByLabelText("Wire diameter d"));
+		await user.clear(screen.getByLabelText("Coil OD D"));
+		await user.clear(screen.getByLabelText("Active coils n"));
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+
+		await user.type(screen.getByLabelText("Wire diameter d"), "2.0");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-C");
+		await user.type(screen.getByLabelText("Part number"), "PN-C");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(3);
+		});
+
+		// Select two rows
+		await user.click(
+			screen.getByRole("checkbox", {
+				name: /Select row for MFG-A PN-A/i,
+			}),
+		);
+		await user.click(
+			screen.getByRole("checkbox", {
+				name: /Select row for MFG-B PN-B/i,
+			}),
+		);
+
+		// Initiate bulk delete
+		await user.click(screen.getByRole("button", { name: "Delete selected" }));
+
+		// Should show confirm button
+		await screen.findByRole("button", { name: "Confirm delete 2" });
+
+		// Cancel the delete
+		await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+		// Should go back to delete selected button
+		await screen.findByRole("button", { name: "Delete selected" });
+
+		// All rows should still exist
+		await expect(listCalculations()).resolves.toHaveLength(3);
+	});
+
+	it("deletes only selected rows and removes them from UI and IndexedDB", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		// Save three calculations
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-A");
+		await user.type(screen.getByLabelText("Part number"), "PN-A");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await user.clear(screen.getByLabelText("Wire diameter d"));
+		await user.clear(screen.getByLabelText("Coil OD D"));
+		await user.clear(screen.getByLabelText("Active coils n"));
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.8");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-B");
+		await user.type(screen.getByLabelText("Part number"), "PN-B");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await user.clear(screen.getByLabelText("Wire diameter d"));
+		await user.clear(screen.getByLabelText("Coil OD D"));
+		await user.clear(screen.getByLabelText("Active coils n"));
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+
+		await user.type(screen.getByLabelText("Wire diameter d"), "2.0");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-C");
+		await user.type(screen.getByLabelText("Part number"), "PN-C");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(3);
+		});
+
+		// Select first and third rows
+		await user.click(
+			screen.getByRole("checkbox", {
+				name: /Select row for MFG-A PN-A/i,
+			}),
+		);
+		await user.click(
+			screen.getByRole("checkbox", {
+				name: /Select row for MFG-C PN-C/i,
+			}),
+		);
+
+		// Initiate and confirm bulk delete
+		await user.click(screen.getByRole("button", { name: "Delete selected" }));
+		await user.click(screen.getByRole("button", { name: "Confirm delete 2" }));
+
+		// Wait for deletion to complete
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(1);
+		});
+
+		// MFG-B should still be visible in UI
+		expect(screen.getByRole("cell", { name: "MFG-B" })).toBeInTheDocument();
+		expect(screen.getByRole("cell", { name: "PN-B" })).toBeInTheDocument();
+
+		// MFG-A and MFG-C should be gone from UI
+		expect(
+			screen.queryByRole("cell", { name: "MFG-A" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("cell", { name: "MFG-C" }),
+		).not.toBeInTheDocument();
+
+		// Verify IndexedDB only contains MFG-B
+		const remaining = await listCalculations();
+		expect(remaining).toHaveLength(1);
+		expect(remaining[0].manufacturer).toBe("MFG-B");
+		expect(remaining[0].partNumber).toBe("PN-B");
+
+		// Selection bar should be gone after successful delete
+		expect(screen.queryByText(/row selected/i)).not.toBeInTheDocument();
+
+		// Toast should show deletion message
+		expect(screen.getByText("2 calculations deleted.")).toBeInTheDocument();
+	});
 });
