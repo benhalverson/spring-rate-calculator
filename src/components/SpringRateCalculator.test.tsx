@@ -139,34 +139,112 @@ describe("SpringRateCalculator", () => {
 			await expect(listCalculations()).resolves.toHaveLength(2);
 		});
 
-		const sortButton = screen.getByRole("button", {
-			name: /Toggle k sorting/i,
-		});
-		await user.click(sortButton);
+		const sortSelect = screen.getByLabelText("Saved results sort");
+		await user.selectOptions(sortSelect, "k-asc");
 
 		let rows = screen.getAllByRole("row");
 		expect(rows[1]).toHaveTextContent("MFG-A");
 		expect(rows[2]).toHaveTextContent("MFG-B");
 
-		await user.click(
-			screen.getByRole("button", {
-				name: /Toggle k sorting/i,
-			}),
-		);
+		await user.selectOptions(sortSelect, "k-desc");
 
 		rows = screen.getAllByRole("row");
 		expect(rows[1]).toHaveTextContent("MFG-B");
 		expect(rows[2]).toHaveTextContent("MFG-A");
 
-		await user.click(
-			screen.getByRole("button", {
-				name: /Toggle k sorting/i,
-			}),
-		);
+		await user.selectOptions(sortSelect, "created-desc");
 
 		rows = screen.getAllByRole("row");
 		expect(rows[1]).toHaveTextContent("MFG-B");
 		expect(rows[2]).toHaveTextContent("MFG-A");
+	});
+
+	it("filters saved results by search text and units", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		await createCalculation(user, {
+			wireDiameter: "1.2",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "Alpha Springs",
+			partNumber: "AL-1",
+		});
+
+		await user.click(screen.getByRole("button", { name: /^in$/i }));
+		await createCalculation(user, {
+			wireDiameter: "1.2",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "Beta Springs",
+			partNumber: "BE-2",
+		});
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(2);
+		});
+
+		await user.type(screen.getByLabelText("Search saved results"), "alpha");
+
+		expect(
+			screen.getByRole("cell", { name: "Alpha Springs" }),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("cell", { name: "Beta Springs" }),
+		).not.toBeInTheDocument();
+
+		await user.clear(screen.getByLabelText("Search saved results"));
+		await user.selectOptions(screen.getByLabelText("Filter by units"), "in");
+
+		expect(
+			screen.getByRole("cell", { name: "Beta Springs" }),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("cell", { name: "Alpha Springs" }),
+		).not.toBeInTheDocument();
+
+		await user.selectOptions(screen.getByLabelText("Filter by units"), "mm");
+		expect(
+			screen.getByRole("cell", { name: "Alpha Springs" }),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("cell", { name: "Beta Springs" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("clears all filters and restores full results", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		await createCalculation(user, {
+			wireDiameter: "1.2",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "Gamma",
+			partNumber: "GA-1",
+		});
+
+		await createCalculation(user, {
+			wireDiameter: "1.8",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "Delta",
+			partNumber: "DE-2",
+		});
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(2);
+		});
+
+		await user.type(screen.getByLabelText("Search saved results"), "zzz");
+		expect(
+			screen.getByText(/No saved results match your search\/filters/i),
+		).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Clear all filters" }));
+
+		expect(screen.getByRole("cell", { name: "Gamma" })).toBeInTheDocument();
+		expect(screen.getByRole("cell", { name: "Delta" })).toBeInTheDocument();
 	});
 
 	it("loads and deletes a saved record", async () => {
@@ -833,5 +911,28 @@ describe("SpringRateCalculator", () => {
 			"aria-describedby",
 			"purchase-url-helper",
 		);
+	});
+
+	it("supports keyboard-only row selection via space key", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		await fillValidForm(user);
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(1);
+		});
+
+		const rowCheckbox = screen.getByRole("checkbox", {
+			name: /Select row for Team Associated ASC91322/i,
+		});
+
+		rowCheckbox.focus();
+		await user.keyboard("[Space]");
+		expect(screen.getByText("1 row selected")).toBeInTheDocument();
+
+		await user.keyboard("[Space]");
+		expect(screen.queryByText(/row selected/i)).not.toBeInTheDocument();
 	});
 });

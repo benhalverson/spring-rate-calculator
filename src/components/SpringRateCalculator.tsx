@@ -6,7 +6,11 @@ import {
 	bulkDeleteCalculations,
 	clearCalculations,
 	deleteCalculation,
+	getSyncStatus,
+	isCloudSyncEnabled,
 	listCalculations,
+	subscribeSyncStatus,
+	triggerBackgroundSync,
 } from "../lib/db";
 import {
 	computeDavg,
@@ -14,6 +18,7 @@ import {
 	getSpringSteelShearModulus,
 	validateInputs,
 } from "../lib/springRate";
+import type { SyncStatus } from "../lib/storageAdapter";
 import type {
 	SpringCalcRecord,
 	Units,
@@ -30,6 +35,8 @@ import {
 	type CalculatorInputs,
 	EMPTY_VALIDATION,
 	parseNumber,
+	type SavedFilters,
+	type SavedSortOption,
 } from "./springCalculator/utils";
 
 const EMPTY_INPUTS: CalculatorInputs = {
@@ -57,10 +64,14 @@ export function SpringRateCalculator() {
 	const [deferredInstallPrompt, setDeferredInstallPrompt] =
 		useState<BeforeInstallPromptEvent | null>(null);
 	const [isIosSafari, setIsIosSafari] = useState(false);
+	const [syncStatus, setSyncStatus] = useState<SyncStatus>(() =>
+		getSyncStatus(),
+	);
 	const {
 		state: savedState,
 		displayedHistory,
 		selectedRecords,
+		activeFilterCount,
 		hydrateHistory,
 		prependRecord,
 		deleteRecord,
@@ -68,7 +79,9 @@ export function SpringRateCalculator() {
 		clearHistory,
 		setConfirmingBulkDelete,
 		setConfirmingClearAll,
-		toggleKSort,
+		setSortOption,
+		setFilter,
+		clearFilters,
 		toggleSelection,
 		toggleSelectAll,
 		clearSelection,
@@ -166,6 +179,27 @@ export function SpringRateCalculator() {
 			window.removeEventListener("offline", offline);
 		};
 	}, []);
+
+	useEffect(() => {
+		if (!isCloudSyncEnabled) {
+			return;
+		}
+
+		const unsubscribe = subscribeSyncStatus((status) => {
+			setSyncStatus(status);
+		});
+
+		return () => {
+			unsubscribe();
+		};
+	}, []);
+
+	useEffect(() => {
+		if (!isCloudSyncEnabled || isOffline) {
+			return;
+		}
+		void triggerBackgroundSync();
+	}, [isOffline]);
 
 	useEffect(() => {
 		if (!toast) {
@@ -330,6 +364,14 @@ export function SpringRateCalculator() {
 		toggleSelectAll(displayedHistory.map((record) => record.id));
 	};
 
+	const handleSortOptionChange = (sortOption: SavedSortOption): void => {
+		setSortOption(sortOption);
+	};
+
+	const handleFilterChange = (key: keyof SavedFilters, value: string): void => {
+		setFilter(key, value);
+	};
+
 	const handleBulkDelete = async (): Promise<void> => {
 		if (!savedState.isConfirmingBulkDelete) {
 			setConfirmingBulkDelete(true);
@@ -403,6 +445,8 @@ export function SpringRateCalculator() {
 					units={units}
 					isDarkMode={isDarkMode}
 					showIosInstallHint={isIosSafari && deferredInstallPrompt === null}
+					showSyncStatus={isCloudSyncEnabled}
+					syncStatus={syncStatus}
 					onUnitsChange={setUnits}
 					onThemeToggle={handleThemeToggle}
 					hasInstallPrompt={deferredInstallPrompt !== null}
@@ -435,11 +479,16 @@ export function SpringRateCalculator() {
 
 					<SavedCalculationsTable
 						records={displayedHistory}
+						totalRecords={savedState.history.length}
+						activeFilterCount={activeFilterCount}
+						filters={savedState.filters}
+						sortOption={savedState.sortOption}
 						isConfirmingClearAll={savedState.isConfirmingClearAll}
-						kSortDirection={savedState.kSortDirection}
 						selectedIds={savedState.selectedIds}
 						isConfirmingBulkDelete={savedState.isConfirmingBulkDelete}
-						onToggleSort={toggleKSort}
+						onSortOptionChange={handleSortOptionChange}
+						onFilterChange={handleFilterChange}
+						onClearFilters={clearFilters}
 						onClearAll={handleClearAll}
 						onCancelClearAll={cancelClearAll}
 						onLoad={handleLoad}
