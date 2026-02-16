@@ -340,13 +340,14 @@ export function SpringRateCalculator() {
 		}
 
 		const idsToDelete = Array.from(selectedIds);
-		await bulkDeleteCalculations(idsToDelete);
-		setHistory((previous) =>
-			previous.filter((record) => !selectedIds.has(record.id)),
-		);
+		const idsToDeleteSet = new Set(idsToDelete);
 		const deletedCount = idsToDelete.length;
 		setSelectedIds(new Set());
 		setIsConfirmingBulkDelete(false);
+		await bulkDeleteCalculations(idsToDelete);
+		setHistory((previous) =>
+			previous.filter((record) => !idsToDeleteSet.has(record.id)),
+		);
 		setToast(
 			`${deletedCount} calculation${deletedCount !== 1 ? "s" : ""} deleted.`,
 		);

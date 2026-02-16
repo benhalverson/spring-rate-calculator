@@ -264,4 +264,76 @@ describe("SpringRateCalculator", () => {
 		expect(screen.getByLabelText("Part number")).toHaveValue("");
 		expect(screen.getByLabelText("Notes (optional)")).toHaveValue("");
 	});
+
+	it("deletes correct records even when selection changes during bulk delete", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		// Create three records
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.0");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.0");
+		await user.type(screen.getByLabelText("Active coils n"), "5");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-1");
+		await user.type(screen.getByLabelText("Part number"), "PN-1");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await user.clear(screen.getByLabelText("Wire diameter d"));
+		await user.clear(screen.getByLabelText("Coil OD D"));
+		await user.clear(screen.getByLabelText("Active coils n"));
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.5");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.0");
+		await user.type(screen.getByLabelText("Active coils n"), "5");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-2");
+		await user.type(screen.getByLabelText("Part number"), "PN-2");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await user.clear(screen.getByLabelText("Wire diameter d"));
+		await user.clear(screen.getByLabelText("Coil OD D"));
+		await user.clear(screen.getByLabelText("Active coils n"));
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+
+		await user.type(screen.getByLabelText("Wire diameter d"), "2.0");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.0");
+		await user.type(screen.getByLabelText("Active coils n"), "5");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-3");
+		await user.type(screen.getByLabelText("Part number"), "PN-3");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(3);
+		});
+
+		// Select first two checkboxes (MFG-3 and MFG-2, newest first)
+		const checkboxes = screen.getAllByRole("checkbox");
+		await user.click(checkboxes[1]); // MFG-3
+		await user.click(checkboxes[2]); // MFG-2
+
+		// Click bulk delete button (first time for confirmation)
+		await user.click(screen.getByRole("button", { name: "Delete selected" }));
+		await screen.findByRole("button", { name: "Confirm delete 2" });
+
+		// Confirm deletion
+		await user.click(screen.getByRole("button", { name: "Confirm delete 2" }));
+
+		// Wait for deletion to complete
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(1);
+		});
+
+		// Verify only MFG-1 remains
+		expect(screen.getByRole("cell", { name: "MFG-1" })).toBeInTheDocument();
+		expect(
+			screen.queryByRole("cell", { name: "MFG-2" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("cell", { name: "MFG-3" }),
+		).not.toBeInTheDocument();
+
+		// Verify toast message
+		expect(screen.getByText("2 calculations deleted.")).toBeInTheDocument();
+	});
 });
