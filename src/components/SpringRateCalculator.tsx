@@ -22,6 +22,7 @@ import type {
 import { SpringViz } from "./SpringViz";
 import { CalculatorForm } from "./springCalculator/CalculatorForm";
 import { CalculatorHeader } from "./springCalculator/CalculatorHeader";
+import { ComparePanel } from "./springCalculator/ComparePanel";
 import { SavedCalculationsTable } from "./springCalculator/SavedCalculationsTable";
 import {
 	type BeforeInstallPromptEvent,
@@ -62,6 +63,7 @@ export function SpringRateCalculator() {
 	const [isIosSafari, setIsIosSafari] = useState(false);
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	const [isConfirmingBulkDelete, setIsConfirmingBulkDelete] = useState(false);
+	const [showComparePanel, setShowComparePanel] = useState(false);
 
 	const parsedD = parseNumber(inputs.dInput);
 	const parsedDOuter = parseNumber(inputs.DInput);
@@ -359,6 +361,7 @@ export function SpringRateCalculator() {
 
 	const handleClearSelection = (): void => {
 		setSelectedIds(new Set());
+		setShowComparePanel(false);
 	};
 
 	const handleClearAll = async (): Promise<void> => {
@@ -371,6 +374,7 @@ export function SpringRateCalculator() {
 		setHistory([]);
 		setSelectedIds(new Set());
 		setIsConfirmingClearAll(false);
+		setShowComparePanel(false);
 		setToast("All saved calculations cleared.");
 	};
 
@@ -392,6 +396,27 @@ export function SpringRateCalculator() {
 	const handleThemeToggle = (): void => {
 		setIsDarkMode((current) => !current);
 	};
+
+	const handleCompare = (): void => {
+		setShowComparePanel(true);
+	};
+
+	const handleRemoveCandidate = (id: string): void => {
+		setSelectedIds((previous) => {
+			const next = new Set(previous);
+			next.delete(id);
+			return next;
+		});
+	};
+
+	const handleClearCompare = (): void => {
+		setSelectedIds(new Set());
+		setShowComparePanel(false);
+	};
+
+	const selectedRecords = useMemo(() => {
+		return history.filter((record) => selectedIds.has(record.id));
+	}, [history, selectedIds]);
 
 	return (
 		<div className="mx-auto w-full max-w-[1120px] px-4 py-6 md:px-6 md:py-8">
@@ -443,11 +468,20 @@ export function SpringRateCalculator() {
 						onLoad={handleLoad}
 						onDelete={handleDelete}
 						onToggleSelection={handleToggleSelection}
+						onCompare={handleCompare}
 						onToggleSelectAll={handleToggleSelectAll}
 						onBulkDelete={handleBulkDelete}
 						onCancelBulkDelete={handleCancelBulkDelete}
 						onClearSelection={handleClearSelection}
 					/>
+
+					{showComparePanel ? (
+						<ComparePanel
+							selectedRecords={selectedRecords}
+							onRemoveCandidate={handleRemoveCandidate}
+							onClearCompare={handleClearCompare}
+						/>
+					) : null}
 				</main>
 			</div>
 

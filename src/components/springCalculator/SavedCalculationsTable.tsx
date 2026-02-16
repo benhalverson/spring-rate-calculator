@@ -37,6 +37,7 @@ interface SavedCalculationsTableProps {
 	onBulkDelete: () => Promise<void>;
 	onCancelBulkDelete: () => void;
 	onClearSelection: () => void;
+	onCompare: () => void;
 }
 
 /**
@@ -58,18 +59,36 @@ export function SavedCalculationsTable({
 	onBulkDelete,
 	onCancelBulkDelete,
 	onClearSelection,
+	onCompare,
 }: SavedCalculationsTableProps) {
 	const selectedCount = selectedIds.size;
 	const allSelected = records.length > 0 && selectedCount === records.length;
 	const someSelected = selectedCount > 0 && selectedCount < records.length;
+	const canCompare = selectedCount >= 2 && selectedCount <= 4;
 
 	return (
 		<Card className="md:col-span-2">
 			<CardHeader className="flex-row items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
 				<CardTitle className="text-[1.05rem] text-slate-700 dark:text-slate-100">
 					Saved
+					{selectedCount > 0 ? (
+						<span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">
+							({selectedCount} selected)
+						</span>
+					) : null}
 				</CardTitle>
 				<div className="inline-flex items-center gap-2">
+					{canCompare ? (
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							className="h-8 bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300"
+							onClick={onCompare}
+						>
+							Compare
+						</Button>
+					) : null}
 					<Button
 						type="button"
 						variant="outline"
@@ -151,9 +170,9 @@ export function SavedCalculationsTable({
 										<TableHead scope="col" className="w-12">
 											<Checkbox
 												checked={allSelected}
-												ref={(el) => {
-													if (el) {
-														el.indeterminate = someSelected;
+												ref={(element) => {
+													if (element) {
+														element.indeterminate = someSelected;
 													}
 												}}
 												onChange={onToggleSelectAll}
