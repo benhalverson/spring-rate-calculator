@@ -101,6 +101,12 @@ Deployment is handled by Cloudflare dashboard Git integration (auto-deploy on `m
 
 For `main`, require the `CI` workflow check to pass before merging.
 
+## Architecture & Design
+
+For detailed technical design documentation, see:
+
+- [D1 + Hono Backend Migration Design](docs/d1-hono-migration-design.md) - Technical spike for migrating from local-only storage to cloud-backed persistence with offline-first sync
+
 ## Testing Library Peer Dependencies
 
 This project explicitly includes `@testing-library/dom` in `devDependencies` to ensure stable and deterministic test environments. While both `@testing-library/react` and `@testing-library/user-event` declare it as a peer dependency, we include it explicitly for the following reasons:
