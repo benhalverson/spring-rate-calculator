@@ -40,6 +40,8 @@ const hasVariance = (values: number[]): boolean => {
 	if (values.length <= 1) return false;
 	const min = Math.min(...values);
 	const max = Math.max(...values);
+	// Handle case where all values are zero
+	if (min === 0 && max === 0) return false;
 	// Consider variance if difference is more than 0.1%
 	return Math.abs(max - min) / Math.max(Math.abs(min), Math.abs(max)) > 0.001;
 };
