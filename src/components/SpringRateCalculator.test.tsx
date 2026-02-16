@@ -264,4 +264,234 @@ describe("SpringRateCalculator", () => {
 		expect(screen.getByLabelText("Part number")).toHaveValue("");
 		expect(screen.getByLabelText("Notes (optional)")).toHaveValue("");
 	});
+
+	it("filters saved calculations by search query", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		// Save first calculation
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "Team Associated");
+		await user.type(screen.getByLabelText("Part number"), "ASC91322");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		// Clear and save second calculation
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+		await user.type(screen.getByLabelText("Manufacturer"), "Eibach");
+		await user.type(screen.getByLabelText("Part number"), "EIB5000");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(2);
+		});
+
+		// Both should be visible initially
+		expect(screen.getByRole("cell", { name: "Team Associated" })).toBeInTheDocument();
+		expect(screen.getByRole("cell", { name: "Eibach" })).toBeInTheDocument();
+
+		// Search for "Team"
+		const searchInput = screen.getByPlaceholderText(
+			/Search by manufacturer, part #, or notes/i,
+		);
+		await user.type(searchInput, "Team");
+
+		// Only Team Associated should be visible
+		expect(screen.getByRole("cell", { name: "Team Associated" })).toBeInTheDocument();
+		expect(screen.queryByRole("cell", { name: "Eibach" })).not.toBeInTheDocument();
+
+		// Clear search
+		await user.clear(searchInput);
+
+		// Both should be visible again
+		await waitFor(() => {
+			expect(screen.getByRole("cell", { name: "Team Associated" })).toBeInTheDocument();
+			expect(screen.getByRole("cell", { name: "Eibach" })).toBeInTheDocument();
+		});
+	});
+
+	it("sorts saved calculations by date", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		// Save first calculation
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-First");
+		await user.type(screen.getByLabelText("Part number"), "PN-1");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		// Wait a bit to ensure different timestamps
+		await new Promise(resolve => setTimeout(resolve, 10));
+
+		// Save second calculation
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-Second");
+		await user.type(screen.getByLabelText("Part number"), "PN-2");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(2);
+		});
+
+		const dateSortButton = screen.getByRole("button", {
+			name: /Toggle date sorting/i,
+		});
+
+		// Click to sort newest first
+		await user.click(dateSortButton);
+		let rows = screen.getAllByRole("row");
+		expect(rows[1]).toHaveTextContent("MFG-Second");
+		expect(rows[2]).toHaveTextContent("MFG-First");
+
+		// Click to sort oldest first
+		await user.click(dateSortButton);
+		rows = screen.getAllByRole("row");
+		expect(rows[1]).toHaveTextContent("MFG-First");
+		expect(rows[2]).toHaveTextContent("MFG-Second");
+
+		// Click to clear sort
+		await user.click(dateSortButton);
+		rows = screen.getAllByRole("row");
+		expect(rows[1]).toHaveTextContent("MFG-Second");
+		expect(rows[2]).toHaveTextContent("MFG-First");
+	});
+
+	it("preserves sort state in localStorage", async () => {
+		window.localStorage.clear(); // Clear storage before test
+		const user = userEvent.setup();
+		const { unmount } = render(<SpringRateCalculator />);
+
+		// Save a calculation
+		await fillValidForm(user);
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(1);
+		});
+
+		// Set k sort
+		const kSortButton = screen.getByRole("button", {
+			name: /Toggle k sorting/i,
+		});
+		await user.click(kSortButton);
+
+		// Verify it's stored in localStorage
+		expect(window.localStorage.getItem("spring-rate-k-sort")).toBe("asc");
+
+		// Unmount and remount
+		unmount();
+		render(<SpringRateCalculator />);
+
+		// Verify sort is restored
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", { name: /Toggle k sorting, current: asc/i }),
+			).toBeInTheDocument();
+		});
+
+		// Clean up
+		window.localStorage.clear();
+	});
+
+	it("mutually exclusive sort modes - date sort clears k sort", async () => {
+		window.localStorage.clear(); // Clear storage before test
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		await fillValidForm(user);
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(1);
+		});
+
+		// Set k sort
+		const kSortButton = screen.getByRole("button", {
+			name: /Toggle k sorting/i,
+		});
+		await user.click(kSortButton);
+
+		expect(
+			screen.getByRole("button", { name: /Toggle k sorting, current: asc/i }),
+		).toBeInTheDocument();
+
+		// Activate date sort
+		const dateSortButton = screen.getByRole("button", {
+			name: /Toggle date sorting/i,
+		});
+		await user.click(dateSortButton);
+
+		// K sort should be cleared
+		expect(
+			screen.getByRole("button", { name: /Toggle k sorting, current: none/i }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /Toggle date sorting, current: newest/i }),
+		).toBeInTheDocument();
+
+		// Clean up
+		window.localStorage.clear();
+	});
+
+	it("search works with sorting", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		// Save first calculation with lower k (d=1.2)
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "Team Associated");
+		await user.type(screen.getByLabelText("Part number"), "ASC91322");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		// Save second calculation with higher k (d=1.8)
+		await user.clear(screen.getByLabelText("Wire diameter d"));
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.8");
+		await user.type(screen.getByLabelText("Manufacturer"), "Team Associated");
+		await user.type(screen.getByLabelText("Part number"), "ASC91323");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		// Save third calculation - different manufacturer
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+		await user.type(screen.getByLabelText("Manufacturer"), "Eibach");
+		await user.type(screen.getByLabelText("Part number"), "EIB5000");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(3);
+		});
+
+		// Search for "Team"
+		const searchInput = screen.getByPlaceholderText(
+			/Search by manufacturer, part #, or notes/i,
+		);
+		await user.type(searchInput, "Team");
+
+		// Only Team Associated records should be visible
+		const teamCellsBefore = screen.getAllByRole("cell", {
+			name: "Team Associated",
+		});
+		expect(teamCellsBefore).toHaveLength(2);
+
+		// Apply k sort ascending
+		const kSortButton = screen.getByRole("button", {
+			name: /Toggle k sorting/i,
+		});
+		await user.click(kSortButton);
+
+		// Get all rows (skip header row)
+		const rows = screen.getAllByRole("row");
+		// Row 1 is header, Row 2 should have lower k (ASC91322), Row 3 should have higher k (ASC91323)
+		expect(rows[1]).toHaveTextContent("ASC91322"); // Lower k (d=1.2)
+		expect(rows[2]).toHaveTextContent("ASC91323"); // Higher k (d=1.8)
+	});
 });

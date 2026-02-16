@@ -1,6 +1,7 @@
 import type { SpringCalcRecord } from "../../types/spring";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Input } from "../ui/input";
 import {
 	Table,
 	TableBody,
@@ -10,8 +11,10 @@ import {
 	TableRow,
 } from "../ui/table";
 import {
+	type DateSortDirection,
 	formatK,
 	formatValue,
+	getDateSortLabel,
 	getKSortLabel,
 	getRateUnitsLabel,
 	type KSortDirection,
@@ -24,7 +27,11 @@ interface SavedCalculationsTableProps {
 	records: SpringCalcRecord[];
 	isConfirmingClearAll: boolean;
 	kSortDirection: KSortDirection;
-	onToggleSort: () => void;
+	dateSortDirection: DateSortDirection;
+	searchQuery: string;
+	onToggleKSort: () => void;
+	onToggleDateSort: () => void;
+	onSearchChange: (query: string) => void;
 	onClearAll: () => Promise<void>;
 	onCancelClearAll: () => void;
 	onLoad: (record: SpringCalcRecord) => void;
@@ -38,7 +45,11 @@ export function SavedCalculationsTable({
 	records,
 	isConfirmingClearAll,
 	kSortDirection,
-	onToggleSort,
+	dateSortDirection,
+	searchQuery,
+	onToggleKSort,
+	onToggleDateSort,
+	onSearchChange,
 	onClearAll,
 	onCancelClearAll,
 	onLoad,
@@ -74,6 +85,18 @@ export function SavedCalculationsTable({
 				</div>
 			</CardHeader>
 
+			{records.length === 0 ? null : (
+				<div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+					<Input
+						type="text"
+						placeholder="Search by manufacturer, part #, or notes..."
+						value={searchQuery}
+						onChange={(e) => onSearchChange(e.target.value)}
+						className="h-9 max-w-md"
+					/>
+				</div>
+			)}
+
 			{records.length === 0 ? (
 				<CardContent className="px-4 py-4">
 					<p className="text-sm text-slate-600 dark:text-slate-300">
@@ -86,6 +109,18 @@ export function SavedCalculationsTable({
 						<Table>
 							<TableHeader>
 								<TableRow className="bg-slate-50 dark:bg-slate-900">
+									<TableHead scope="col" className="min-w-32">
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											className="h-7"
+											onClick={onToggleDateSort}
+											aria-label={`Toggle date sorting, current: ${dateSortDirection}`}
+										>
+											{getDateSortLabel(dateSortDirection)}
+										</Button>
+									</TableHead>
 									<TableHead scope="col">Manufacturer</TableHead>
 									<TableHead scope="col">Part #</TableHead>
 									<TableHead scope="col">d</TableHead>
@@ -98,7 +133,7 @@ export function SavedCalculationsTable({
 											variant="outline"
 											size="sm"
 											className="h-7"
-											onClick={onToggleSort}
+											onClick={onToggleKSort}
 											aria-label={`Toggle k sorting, current: ${kSortDirection}`}
 										>
 											{getKSortLabel(kSortDirection)}
@@ -113,6 +148,9 @@ export function SavedCalculationsTable({
 							<TableBody>
 								{records.map((record) => (
 									<TableRow key={record.id} className="text-[0.9rem]">
+										<TableCell className="text-xs text-slate-600 dark:text-slate-400">
+											{new Date(record.createdAt).toLocaleDateString()}
+										</TableCell>
 										<TableCell>{record.manufacturer}</TableCell>
 										<TableCell>{record.partNumber}</TableCell>
 										<TableCell>{formatValue(record.d)}</TableCell>

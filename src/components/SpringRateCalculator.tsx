@@ -25,9 +25,11 @@ import { SavedCalculationsTable } from "./springCalculator/SavedCalculationsTabl
 import {
 	type BeforeInstallPromptEvent,
 	type CalculatorInputs,
+	type DateSortDirection,
 	EMPTY_VALIDATION,
 	type KSortDirection,
 	parseNumber,
+	toggleDateSortDirection,
 	toggleKSortDirection,
 } from "./springCalculator/utils";
 
@@ -56,6 +58,9 @@ export function SpringRateCalculator() {
 	const [isConfirmingClearAll, setIsConfirmingClearAll] = useState(false);
 	const [invalidSaveAttempted, setInvalidSaveAttempted] = useState(false);
 	const [kSortDirection, setKSortDirection] = useState<KSortDirection>("none");
+	const [dateSortDirection, setDateSortDirection] =
+		useState<DateSortDirection>("none");
+	const [searchQuery, setSearchQuery] = useState("");
 	const [deferredInstallPrompt, setDeferredInstallPrompt] =
 		useState<BeforeInstallPromptEvent | null>(null);
 	const [isIosSafari, setIsIosSafari] = useState(false);
@@ -108,16 +113,36 @@ export function SpringRateCalculator() {
 		hasRequiredSourceDetails;
 
 	const displayedHistory = useMemo(() => {
-		if (kSortDirection === "none") {
-			return history;
+		// Filter by search query
+		let filtered = history;
+		if (searchQuery.trim()) {
+			const query = searchQuery.toLowerCase();
+			filtered = history.filter((record) => {
+				return (
+					record.manufacturer.toLowerCase().includes(query) ||
+					record.partNumber.toLowerCase().includes(query) ||
+					record.notes?.toLowerCase().includes(query)
+				);
+			});
 		}
 
-		const sorted = [...history].sort((a, b) => {
-			return kSortDirection === "asc" ? a.k - b.k : b.k - a.k;
-		});
+		// Apply sorting
+		if (kSortDirection !== "none") {
+			return [...filtered].sort((a, b) => {
+				return kSortDirection === "asc" ? a.k - b.k : b.k - a.k;
+			});
+		}
 
-		return sorted;
-	}, [history, kSortDirection]);
+		if (dateSortDirection !== "none") {
+			return [...filtered].sort((a, b) => {
+				return dateSortDirection === "newest"
+					? b.createdAt - a.createdAt
+					: a.createdAt - b.createdAt;
+			});
+		}
+
+		return filtered;
+	}, [history, kSortDirection, dateSortDirection, searchQuery]);
 
 	const setInputValue = (
 		field: keyof CalculatorInputs,
@@ -141,6 +166,24 @@ export function SpringRateCalculator() {
 		const shouldUseDark = storedTheme !== "light";
 		setIsDarkMode(shouldUseDark);
 		document.documentElement.classList.toggle("dark", shouldUseDark);
+
+		// Load sort preferences from localStorage
+		const storedKSort = window.localStorage.getItem(
+			"spring-rate-k-sort",
+		) as KSortDirection | null;
+		if (storedKSort && ["none", "asc", "desc"].includes(storedKSort)) {
+			setKSortDirection(storedKSort);
+		}
+
+		const storedDateSort = window.localStorage.getItem(
+			"spring-rate-date-sort",
+		) as DateSortDirection | null;
+		if (
+			storedDateSort &&
+			["none", "newest", "oldest"].includes(storedDateSort)
+		) {
+			setDateSortDirection(storedDateSort);
+		}
 	}, []);
 
 	useEffect(() => {
@@ -329,7 +372,29 @@ export function SpringRateCalculator() {
 	};
 
 	const toggleKSort = (): void => {
-		setKSortDirection((current) => toggleKSortDirection(current));
+		setKSortDirection((current) => {
+			const next = toggleKSortDirection(current);
+			window.localStorage.setItem("spring-rate-k-sort", next);
+			// Clear date sort when k sort is activated
+			if (next !== "none") {
+				setDateSortDirection("none");
+				window.localStorage.setItem("spring-rate-date-sort", "none");
+			}
+			return next;
+		});
+	};
+
+	const toggleDateSort = (): void => {
+		setDateSortDirection((current) => {
+			const next = toggleDateSortDirection(current);
+			window.localStorage.setItem("spring-rate-date-sort", next);
+			// Clear k sort when date sort is activated
+			if (next !== "none") {
+				setKSortDirection("none");
+				window.localStorage.setItem("spring-rate-k-sort", "none");
+			}
+			return next;
+		});
 	};
 
 	const handleThemeToggle = (): void => {
@@ -378,7 +443,11 @@ export function SpringRateCalculator() {
 						records={displayedHistory}
 						isConfirmingClearAll={isConfirmingClearAll}
 						kSortDirection={kSortDirection}
-						onToggleSort={toggleKSort}
+						dateSortDirection={dateSortDirection}
+						searchQuery={searchQuery}
+						onToggleKSort={toggleKSort}
+						onToggleDateSort={toggleDateSort}
+						onSearchChange={setSearchQuery}
 						onClearAll={handleClearAll}
 						onCancelClearAll={cancelClearAll}
 						onLoad={handleLoad}

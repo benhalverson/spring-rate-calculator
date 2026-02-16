@@ -14,6 +14,11 @@ export interface BeforeInstallPromptEvent extends Event {
 export type KSortDirection = "none" | "asc" | "desc";
 
 /**
+ * Sorting state for the saved calculations table by creation date.
+ */
+export type DateSortDirection = "none" | "newest" | "oldest";
+
+/**
  * Raw form input values managed as strings for input UX.
  */
 export interface CalculatorInputs {
@@ -113,4 +118,32 @@ export const getKSortLabel = (direction: KSortDirection): string => {
 		return "Sort k ↑";
 	}
 	return "Sort k ↓";
+};
+
+/**
+ * Cycles the date sort direction through none -> newest -> oldest -> none.
+ */
+export const toggleDateSortDirection = (
+	current: DateSortDirection,
+): DateSortDirection => {
+	if (current === "none") {
+		return "newest";
+	}
+	if (current === "newest") {
+		return "oldest";
+	}
+	return "none";
+};
+
+/**
+ * Produces a user-facing label for the current date sort direction.
+ */
+export const getDateSortLabel = (direction: DateSortDirection): string => {
+	if (direction === "none") {
+		return "Sort date";
+	}
+	if (direction === "newest") {
+		return "Sort date ↓";
+	}
+	return "Sort date ↑";
 };
