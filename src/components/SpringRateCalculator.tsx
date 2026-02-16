@@ -204,7 +204,7 @@ export function SpringRateCalculator() {
 		if (selectedIds.size === 0 && isConfirmingBulkDelete) {
 			setIsConfirmingBulkDelete(false);
 		}
-	}, [selectedIds.size, isConfirmingBulkDelete]);
+	}, [selectedIds.size]);
 
 	const runSaveValidation = (): ValidationResult => {
 		const nextErrors: Record<string, string> = {};
