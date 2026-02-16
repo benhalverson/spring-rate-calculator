@@ -52,17 +52,28 @@ cd spring-rate-calculator
 pnpm install
 ```
 
-### 3) Start development server
+### 3) Build assets (required for Wrangler local serve)
+
+```bash
+pnpm build
+```
+
+### 4) Start local dev with Wrangler
 
 ```bash
 pnpm dev
 ```
 
-Then open the local URL printed by Vite (usually `http://localhost:5173`).
+Then open the local URL printed by Wrangler (usually `http://localhost:8787`).
+
+API health endpoint:
+
+- `GET /api/v1/health`
 
 ## Useful scripts
 
-- `pnpm dev` — run local dev server
+- `pnpm dev` — run local Worker dev server via Wrangler
+- `pnpm dev:vite` — run Vite dev server only (frontend only)
 - `pnpm build` — type-check + production build
 - `pnpm preview` — preview production build locally
 - `pnpm lint` — run Biome checks
