@@ -295,6 +295,61 @@ describe("SpringRateCalculator", () => {
 		expect(screen.getByLabelText("Notes (optional)")).toHaveValue("");
 	});
 
+	it("deletes correct records using snapshot of selection at click time", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		await createCalculation(user, {
+			wireDiameter: "1.0",
+			coilOD: "10.0",
+			activeCoils: "5",
+			manufacturer: "MFG-1",
+			partNumber: "PN-1",
+		});
+
+		await createCalculation(user, {
+			wireDiameter: "1.5",
+			coilOD: "10.0",
+			activeCoils: "5",
+			manufacturer: "MFG-2",
+			partNumber: "PN-2",
+		});
+
+		await createCalculation(user, {
+			wireDiameter: "2.0",
+			coilOD: "10.0",
+			activeCoils: "5",
+			manufacturer: "MFG-3",
+			partNumber: "PN-3",
+		});
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(3);
+		});
+
+		// Select first two checkboxes (MFG-3 and MFG-2, newest first)
+		const checkboxes = screen.getAllByRole("checkbox");
+		await user.click(checkboxes[1]);
+		await user.click(checkboxes[2]);
+
+		await user.click(screen.getByRole("button", { name: "Delete selected" }));
+		await screen.findByRole("button", { name: "Confirm delete 2" });
+		await user.click(screen.getByRole("button", { name: "Confirm delete 2" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(1);
+		});
+
+		expect(screen.getByRole("cell", { name: "MFG-1" })).toBeInTheDocument();
+		expect(
+			screen.queryByRole("cell", { name: "MFG-2" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("cell", { name: "MFG-3" }),
+		).not.toBeInTheDocument();
+		expect(screen.getByText("2 calculations deleted.")).toBeInTheDocument();
+	});
+
 	it("selects and deselects individual rows with checkboxes", async () => {
 		const user = userEvent.setup();
 		render(<SpringRateCalculator />);
