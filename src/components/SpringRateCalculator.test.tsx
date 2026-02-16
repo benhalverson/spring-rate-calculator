@@ -264,4 +264,93 @@ describe("SpringRateCalculator", () => {
 		expect(screen.getByLabelText("Part number")).toHaveValue("");
 		expect(screen.getByLabelText("Notes (optional)")).toHaveValue("");
 	});
+
+	it("displays helper text for all input fields by default", () => {
+		render(<SpringRateCalculator />);
+
+		expect(
+			screen.getByText(
+				/Must be a positive number\. Typical range: 0\.5–3 mm\./i,
+			),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				/Must be a positive number.*\. Typical range: 5–15 mm\./i,
+			),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				/Must be a positive number, typically an integer\. Common range: 4–10\./i,
+			),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(/Required\. The spring manufacturer or brand name\./i),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(/Required\. The manufacturer's part or model number\./i),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				/Optional\. Must be a valid URL \(e\.g\., https:\/\/example\.com\)\./i,
+			),
+		).toBeInTheDocument();
+	});
+
+	it("shows dynamic hint when d is entered, indicating D must be greater than d", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		await user.type(screen.getByLabelText("Wire diameter d"), "2.5");
+
+		expect(
+			screen.getByText(
+				/Must be a positive number and greater than 2\.5 mm\. Typical range: 5–15 mm\./i,
+			),
+		).toBeInTheDocument();
+	});
+
+	it("shows warning icon for non-integer n values", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.2");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6.5");
+
+		await user.type(screen.getByLabelText("Manufacturer"), "Test");
+		await user.type(screen.getByLabelText("Part number"), "Test123");
+
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		expect(
+			screen.getByText(/⚠ Active coils is typically an integer\./i),
+		).toBeInTheDocument();
+	});
+
+	it("ensures helper text is accessible via aria-describedby", () => {
+		render(<SpringRateCalculator />);
+
+		const dInput = screen.getByLabelText("Wire diameter d");
+		const DInput = screen.getByLabelText("Coil OD D");
+		const nInput = screen.getByLabelText("Active coils n");
+		const manufacturerInput = screen.getByLabelText("Manufacturer");
+		const partNumberInput = screen.getByLabelText("Part number");
+		const purchaseUrlInput = screen.getByLabelText("Purchase URL (optional)");
+
+		expect(dInput).toHaveAttribute("aria-describedby", "d-helper");
+		expect(DInput).toHaveAttribute("aria-describedby", "D-helper");
+		expect(nInput).toHaveAttribute("aria-describedby", "n-helper");
+		expect(manufacturerInput).toHaveAttribute(
+			"aria-describedby",
+			"manufacturer-helper",
+		);
+		expect(partNumberInput).toHaveAttribute(
+			"aria-describedby",
+			"part-number-helper",
+		);
+		expect(purchaseUrlInput).toHaveAttribute(
+			"aria-describedby",
+			"purchase-url-helper",
+		);
+	});
 });
