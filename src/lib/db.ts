@@ -70,6 +70,9 @@ export const deleteCalculation = async (id: string): Promise<void> => {
  * @param ids - Array of unique record ids to delete.
  */
 export const bulkDeleteCalculations = async (ids: string[]): Promise<void> => {
+	if (ids.length === 0) {
+		return;
+	}
 	await db.calculations.bulkDelete(ids);
 };
 

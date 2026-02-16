@@ -191,7 +191,7 @@ export function SavedCalculationsTable({
 												<Checkbox
 													checked={selectedIds.has(record.id)}
 													onChange={() => onToggleSelection(record.id)}
-													aria-label={`Select row for ${record.manufacturer} ${record.partNumber}`}
+													aria-label={`Select row for ${record.manufacturer || "Unknown"} ${record.partNumber || "Unknown"}`}
 												/>
 											</TableCell>
 											<TableCell>{record.manufacturer}</TableCell>
