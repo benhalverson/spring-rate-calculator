@@ -1,0 +1,23 @@
+{
+	"name": "spring-rate-calculator-api",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "wrangler dev",
+		"build": "tsc",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"lint": "biome check .",
+		"format": "biome format --write ."
+	},
+	"dependencies": {
+		"hono": "^4.8.4"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20250115.0",
+		"typescript": "~5.9.3",
+		"vitest": "^4.0.18",
+		"wrangler": "^4.65.0"
+	}
+}

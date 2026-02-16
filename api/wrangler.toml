@@ -1,0 +1,11 @@
+# Wrangler configuration for Hono API backend
+name = "spring-rate-calculator-api"
+main = "src/index.ts"
+compatibility_date = "2026-02-15"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
