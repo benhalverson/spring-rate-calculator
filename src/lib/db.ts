@@ -65,6 +65,18 @@ export const deleteCalculation = async (id: string): Promise<void> => {
 };
 
 /**
+ * Deletes multiple saved calculations by their ids.
+ *
+ * @param ids - Array of unique record ids to delete.
+ */
+export const bulkDeleteCalculations = async (ids: string[]): Promise<void> => {
+	if (ids.length === 0) {
+		return;
+	}
+	await db.calculations.bulkDelete(ids);
+};
+
+/**
  * Deletes all saved calculations.
  */
 export const clearCalculations = async (): Promise<void> => {

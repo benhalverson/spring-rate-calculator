@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
 	addCalculation,
+	bulkDeleteCalculations,
 	clearCalculations,
 	deleteCalculation,
 	listCalculations,
@@ -59,6 +60,8 @@ export function SpringRateCalculator() {
 	const [deferredInstallPrompt, setDeferredInstallPrompt] =
 		useState<BeforeInstallPromptEvent | null>(null);
 	const [isIosSafari, setIsIosSafari] = useState(false);
+	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+	const [isConfirmingBulkDelete, setIsConfirmingBulkDelete] = useState(false);
 
 	const parsedD = parseNumber(inputs.dInput);
 	const parsedDOuter = parseNumber(inputs.DInput);
@@ -302,7 +305,59 @@ export function SpringRateCalculator() {
 	const handleDelete = async (id: string): Promise<void> => {
 		await deleteCalculation(id);
 		setHistory((previous) => previous.filter((record) => record.id !== id));
+		setSelectedIds((previous) => {
+			const next = new Set(previous);
+			next.delete(id);
+			return next;
+		});
 		setToast("Saved calculation deleted.");
+	};
+
+	const handleToggleSelection = (id: string): void => {
+		setSelectedIds((previous) => {
+			const next = new Set(previous);
+			if (next.has(id)) {
+				next.delete(id);
+			} else {
+				next.add(id);
+			}
+			return next;
+		});
+	};
+
+	const handleToggleSelectAll = (): void => {
+		if (selectedIds.size === displayedHistory.length) {
+			setSelectedIds(new Set());
+		} else {
+			setSelectedIds(new Set(displayedHistory.map((record) => record.id)));
+		}
+	};
+
+	const handleBulkDelete = async (): Promise<void> => {
+		if (!isConfirmingBulkDelete) {
+			setIsConfirmingBulkDelete(true);
+			return;
+		}
+
+		const idsToDelete = Array.from(selectedIds);
+		await bulkDeleteCalculations(idsToDelete);
+		setHistory((previous) =>
+			previous.filter((record) => !selectedIds.has(record.id)),
+		);
+		const deletedCount = idsToDelete.length;
+		setSelectedIds(new Set());
+		setIsConfirmingBulkDelete(false);
+		setToast(
+			`${deletedCount} calculation${deletedCount !== 1 ? "s" : ""} deleted.`,
+		);
+	};
+
+	const handleCancelBulkDelete = (): void => {
+		setIsConfirmingBulkDelete(false);
+	};
+
+	const handleClearSelection = (): void => {
+		setSelectedIds(new Set());
 	};
 
 	const handleClearAll = async (): Promise<void> => {
@@ -313,6 +368,7 @@ export function SpringRateCalculator() {
 
 		await clearCalculations();
 		setHistory([]);
+		setSelectedIds(new Set());
 		setIsConfirmingClearAll(false);
 		setToast("All saved calculations cleared.");
 	};
@@ -378,11 +434,18 @@ export function SpringRateCalculator() {
 						records={displayedHistory}
 						isConfirmingClearAll={isConfirmingClearAll}
 						kSortDirection={kSortDirection}
+						selectedIds={selectedIds}
+						isConfirmingBulkDelete={isConfirmingBulkDelete}
 						onToggleSort={toggleKSort}
 						onClearAll={handleClearAll}
 						onCancelClearAll={cancelClearAll}
 						onLoad={handleLoad}
 						onDelete={handleDelete}
+						onToggleSelection={handleToggleSelection}
+						onToggleSelectAll={handleToggleSelectAll}
+						onBulkDelete={handleBulkDelete}
+						onCancelBulkDelete={handleCancelBulkDelete}
+						onClearSelection={handleClearSelection}
 					/>
 				</main>
 			</div>
