@@ -1,6 +1,7 @@
 import type { SpringCalcRecord } from "../../types/spring";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Checkbox } from "../ui/checkbox";
 import {
 	Table,
 	TableBody,
@@ -24,11 +25,14 @@ interface SavedCalculationsTableProps {
 	records: SpringCalcRecord[];
 	isConfirmingClearAll: boolean;
 	kSortDirection: KSortDirection;
+	selectedIds: Set<string>;
 	onToggleSort: () => void;
 	onClearAll: () => Promise<void>;
 	onCancelClearAll: () => void;
 	onLoad: (record: SpringCalcRecord) => void;
 	onDelete: (id: string) => Promise<void>;
+	onToggleSelection: (id: string) => void;
+	onCompare: () => void;
 }
 
 /**
@@ -38,19 +42,40 @@ export function SavedCalculationsTable({
 	records,
 	isConfirmingClearAll,
 	kSortDirection,
+	selectedIds,
 	onToggleSort,
 	onClearAll,
 	onCancelClearAll,
 	onLoad,
 	onDelete,
+	onToggleSelection,
+	onCompare,
 }: SavedCalculationsTableProps) {
+	const selectedCount = selectedIds.size;
+	const canCompare = selectedCount >= 2 && selectedCount <= 4;
 	return (
 		<Card className="md:col-span-2">
 			<CardHeader className="flex-row items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
 				<CardTitle className="text-[1.05rem] text-slate-700 dark:text-slate-100">
 					Saved
+					{selectedCount > 0 ? (
+						<span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">
+							({selectedCount} selected)
+						</span>
+					) : null}
 				</CardTitle>
 				<div className="inline-flex items-center gap-2">
+					{canCompare ? (
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							className="h-8 bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300"
+							onClick={onCompare}
+						>
+							Compare
+						</Button>
+					) : null}
 					<Button
 						type="button"
 						variant="outline"
@@ -86,6 +111,9 @@ export function SavedCalculationsTable({
 						<Table>
 							<TableHeader>
 								<TableRow className="bg-slate-50 dark:bg-slate-900">
+									<TableHead scope="col" className="w-12">
+										Select
+									</TableHead>
 									<TableHead scope="col">Manufacturer</TableHead>
 									<TableHead scope="col">Part #</TableHead>
 									<TableHead scope="col">d</TableHead>
@@ -111,55 +139,68 @@ export function SavedCalculationsTable({
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{records.map((record) => (
-									<TableRow key={record.id} className="text-[0.9rem]">
-										<TableCell>{record.manufacturer}</TableCell>
-										<TableCell>{record.partNumber}</TableCell>
-										<TableCell>{formatValue(record.d)}</TableCell>
-										<TableCell>{formatValue(record.D)}</TableCell>
-										<TableCell>{formatValue(record.n)}</TableCell>
-										<TableCell>{formatValue(record.Davg)}</TableCell>
-										<TableCell>{formatK(record.k)}</TableCell>
-										<TableCell>{getRateUnitsLabel(record.units)}</TableCell>
-										<TableCell>
-											{record.purchaseUrl ? (
-												<a
-													className="text-blue-500 underline-offset-2 hover:underline"
-													href={record.purchaseUrl}
-													target="_blank"
-													rel="noopener"
-												>
-													Link
-												</a>
-											) : (
-												"—"
-											)}
-										</TableCell>
-										<TableCell>{record.notes || "—"}</TableCell>
-										<TableCell>
-											<div className="inline-flex flex-wrap gap-2">
-												<Button
-													type="button"
-													variant="outline"
-													size="sm"
-													className="h-7"
-													onClick={() => onLoad(record)}
-												>
-													Load
-												</Button>
-												<Button
-													type="button"
-													variant="outline"
-													size="sm"
-													className="h-7"
-													onClick={() => void onDelete(record.id)}
-												>
-													Delete
-												</Button>
-											</div>
-										</TableCell>
-									</TableRow>
-								))}
+								{records.map((record) => {
+									const isSelected = selectedIds.has(record.id);
+									const isDisabled = !isSelected && selectedCount >= 4;
+
+									return (
+										<TableRow key={record.id} className="text-[0.9rem]">
+											<TableCell>
+												<Checkbox
+													checked={isSelected}
+													disabled={isDisabled}
+													onChange={() => onToggleSelection(record.id)}
+													aria-label={`Select ${record.manufacturer} ${record.partNumber}`}
+												/>
+											</TableCell>
+											<TableCell>{record.manufacturer}</TableCell>
+											<TableCell>{record.partNumber}</TableCell>
+											<TableCell>{formatValue(record.d)}</TableCell>
+											<TableCell>{formatValue(record.D)}</TableCell>
+											<TableCell>{formatValue(record.n)}</TableCell>
+											<TableCell>{formatValue(record.Davg)}</TableCell>
+											<TableCell>{formatK(record.k)}</TableCell>
+											<TableCell>{getRateUnitsLabel(record.units)}</TableCell>
+											<TableCell>
+												{record.purchaseUrl ? (
+													<a
+														className="text-blue-500 underline-offset-2 hover:underline"
+														href={record.purchaseUrl}
+														target="_blank"
+														rel="noopener"
+													>
+														Link
+													</a>
+												) : (
+													"—"
+												)}
+											</TableCell>
+											<TableCell>{record.notes || "—"}</TableCell>
+											<TableCell>
+												<div className="inline-flex flex-wrap gap-2">
+													<Button
+														type="button"
+														variant="outline"
+														size="sm"
+														className="h-7"
+														onClick={() => onLoad(record)}
+													>
+														Load
+													</Button>
+													<Button
+														type="button"
+														variant="outline"
+														size="sm"
+														className="h-7"
+														onClick={() => void onDelete(record.id)}
+													>
+														Delete
+													</Button>
+												</div>
+											</TableCell>
+										</TableRow>
+									);
+								})}
 							</TableBody>
 						</Table>
 					</div>
