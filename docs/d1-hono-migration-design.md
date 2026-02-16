@@ -356,7 +356,7 @@ CREATE TABLE calculations (
   d REAL NOT NULL,
   D REAL NOT NULL,
   n REAL NOT NULL,
-  d_avg REAL NOT NULL,  -- Average diameter (D - d)
+  d_avg REAL NOT NULL,  -- Mean coil diameter (D - d), maps to TypeScript field 'Davg'
   k REAL NOT NULL,
   
   -- Sync metadata
@@ -636,17 +636,23 @@ const corsHeaders = {
 
 #### Content Security Policy
 ```typescript
+// Secure CSP configuration without unsafe-inline
 const cspHeader = 
   "default-src 'self'; " +
   "connect-src 'self' https://*.benhalverson.workers.dev; " +
-  "script-src 'self'; " +  // Remove 'unsafe-inline', use nonce/hash for inline scripts
-  "style-src 'self';";     // Remove 'unsafe-inline', use nonce/hash for inline styles
+  "script-src 'self'; " +
+  "style-src 'self';";
 
-// Note: For React/Vite apps, consider using a nonce-based CSP:
+// Note: For React/Vite apps with inline scripts/styles, use nonce-based CSP:
 // 1. Generate nonce per request: const nonce = crypto.randomUUID()
-// 2. Add to CSP: script-src 'self' 'nonce-${nonce}'
-// 3. Pass nonce to HTML template for inline scripts
+// 2. Add to CSP: script-src 'self' 'nonce-${nonce}'; style-src 'self' 'nonce-${nonce}'
+// 3. Pass nonce to HTML template and add to inline <script> and <style> tags
 ```
+
+**Database/API Naming Convention:**
+- Database: snake_case (e.g., `d_avg`, `created_at`)
+- TypeScript/API: camelCase (e.g., `Davg`, `createdAt`)
+- Conversion handled in API layer (see Appendix A for examples)
 
 ---
 
