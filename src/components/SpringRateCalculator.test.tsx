@@ -622,6 +622,51 @@ describe("SpringRateCalculator", () => {
 		await expect(listCalculations()).resolves.toHaveLength(3);
 	});
 
+	it("resets bulk-delete confirm mode when selection is cleared", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		await createCalculation(user, {
+			wireDiameter: "1.2",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-A",
+			partNumber: "PN-A",
+		});
+
+		await createCalculation(user, {
+			wireDiameter: "1.8",
+			coilOD: "10.5",
+			activeCoils: "6",
+			manufacturer: "MFG-B",
+			partNumber: "PN-B",
+		});
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(2);
+		});
+
+		await user.click(
+			screen.getByRole("checkbox", {
+				name: /Select row for MFG-A PN-A/i,
+			}),
+		);
+
+		await user.click(screen.getByRole("button", { name: "Delete selected" }));
+		await screen.findByRole("button", { name: "Confirm delete 1" });
+
+		await user.click(
+			screen.getByRole("checkbox", {
+				name: /Select row for MFG-A PN-A/i,
+			}),
+		);
+
+		expect(
+			screen.queryByRole("button", { name: "Confirm delete 1" }),
+		).not.toBeInTheDocument();
+		expect(screen.queryByText(/row selected/i)).not.toBeInTheDocument();
+	});
+
 	it("deletes only selected rows and removes them from UI and IndexedDB", async () => {
 		const user = userEvent.setup();
 		render(<SpringRateCalculator />);
