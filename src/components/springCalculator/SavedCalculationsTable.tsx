@@ -170,11 +170,7 @@ export function SavedCalculationsTable({
 										<TableHead scope="col" className="w-12">
 											<Checkbox
 												checked={allSelected}
-												ref={(element) => {
-													if (element) {
-														element.indeterminate = someSelected;
-													}
-												}}
+												indeterminate={someSelected}
 												onChange={onToggleSelectAll}
 												aria-label="Select all rows"
 											/>
