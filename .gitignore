@@ -13,6 +13,10 @@ dist-ssr
 *.local
 package-lock.json
 
+# API build artifacts
+api/.wrangler
+api/dist
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

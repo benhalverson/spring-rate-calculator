@@ -5,12 +5,15 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
+		"dev:api": "pnpm --filter spring-rate-calculator-api dev",
 		"build": "tsc -b && vite build",
+		"build:api": "pnpm --filter spring-rate-calculator-api build",
 		"deploy": "pnpm build && wrangler deploy",
 		"lint": "biome check .",
 		"format": "biome format --write .",
 		"preview": "vite preview",
 		"test": "vitest run",
+		"test:api": "pnpm --filter spring-rate-calculator-api test",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage"
 	},
