@@ -66,6 +66,17 @@ export function CalculatorForm({
 	const purchaseUrlInputId = "purchase-url-input";
 	const notesInputId = "notes-input";
 
+	const dHelperId = "d-helper";
+	const DHelperId = "D-helper";
+	const nHelperId = "n-helper";
+	const manufacturerHelperId = "manufacturer-helper";
+	const partNumberHelperId = "part-number-helper";
+	const purchaseUrlHelperId = "purchase-url-helper";
+
+	const parsedD = values.dInput ? Number.parseFloat(values.dInput) : undefined;
+	const minimumD =
+		parsedD !== undefined && Number.isFinite(parsedD) ? parsedD : undefined;
+
 	return (
 		<Card>
 			<CardHeader className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
@@ -87,6 +98,7 @@ export function CalculatorForm({
 							}
 							placeholder={`e.g. 1.2 ${units}`}
 							aria-invalid={Boolean(errors.d)}
+							aria-describedby={errors.d ? undefined : dHelperId}
 							className={
 								errors.d
 									? "h-8 border-red-500 bg-white text-sm focus-visible:ring-red-500 dark:bg-slate-900"
@@ -94,10 +106,20 @@ export function CalculatorForm({
 							}
 						/>
 						{errors.d ? (
-							<small className="col-span-2 text-xs font-medium text-red-500">
+							<small
+								className="col-span-2 text-xs font-medium text-red-500"
+								role="alert"
+							>
 								{errors.d}
 							</small>
-						) : null}
+						) : (
+							<small
+								id={dHelperId}
+								className="col-span-2 text-xs text-slate-500 dark:text-slate-400"
+							>
+								Must be a positive number. Typical range: 0.5–3 {units}.
+							</small>
+						)}
 					</div>
 
 					<div className="grid grid-cols-[1fr_1fr] items-center gap-2 text-sm font-medium">
@@ -112,6 +134,7 @@ export function CalculatorForm({
 							}
 							placeholder={`e.g. 10.5 ${units}`}
 							aria-invalid={Boolean(errors.D)}
+							aria-describedby={errors.D ? undefined : DHelperId}
 							className={
 								errors.D
 									? "h-8 border-red-500 bg-white text-sm focus-visible:ring-red-500 dark:bg-slate-900"
@@ -119,10 +142,24 @@ export function CalculatorForm({
 							}
 						/>
 						{errors.D ? (
-							<small className="col-span-2 text-xs font-medium text-red-500">
+							<small
+								className="col-span-2 text-xs font-medium text-red-500"
+								role="alert"
+							>
 								{errors.D}
 							</small>
-						) : null}
+						) : (
+							<small
+								id={DHelperId}
+								className="col-span-2 text-xs text-slate-500 dark:text-slate-400"
+							>
+								Must be a positive number
+								{minimumD
+									? ` and greater than ${formatValue(minimumD)} ${units}`
+									: ""}
+								. Typical range: 5–15 {units}.
+							</small>
+						)}
 					</div>
 
 					<div className="grid grid-cols-[1fr_1fr] items-center gap-2 text-sm font-medium">
@@ -137,6 +174,7 @@ export function CalculatorForm({
 							}
 							placeholder="e.g. 6"
 							aria-invalid={Boolean(errors.n)}
+							aria-describedby={errors.n ? undefined : nHelperId}
 							className={
 								errors.n
 									? "h-8 border-red-500 bg-white text-sm focus-visible:ring-red-500 dark:bg-slate-900"
@@ -144,13 +182,27 @@ export function CalculatorForm({
 							}
 						/>
 						{errors.n ? (
-							<small className="col-span-2 text-xs font-medium text-red-500">
+							<small
+								className="col-span-2 text-xs font-medium text-red-500"
+								role="alert"
+							>
 								{errors.n}
 							</small>
 						) : null}
 						{warnings.n ? (
-							<small className="col-span-2 text-xs font-medium text-amber-500">
-								{warnings.n}
+							<small
+								className="col-span-2 text-xs font-medium text-amber-500"
+								role="alert"
+							>
+								⚠ {warnings.n}
+							</small>
+						) : !errors.n ? (
+							<small
+								id={nHelperId}
+								className="col-span-2 text-xs text-slate-500 dark:text-slate-400"
+							>
+								Must be a positive number, typically an integer. Common range:
+								4–10.
 							</small>
 						) : null}
 					</div>
@@ -171,6 +223,9 @@ export function CalculatorForm({
 								}
 								placeholder="e.g. Team Associated"
 								aria-invalid={Boolean(errors.manufacturer)}
+								aria-describedby={
+									errors.manufacturer ? undefined : manufacturerHelperId
+								}
 								className={
 									errors.manufacturer
 										? "h-8 border-red-500 bg-white text-sm focus-visible:ring-red-500 dark:bg-slate-900"
@@ -178,10 +233,20 @@ export function CalculatorForm({
 								}
 							/>
 							{errors.manufacturer ? (
-								<small className="text-xs font-medium text-red-500">
+								<small
+									className="text-xs font-medium text-red-500"
+									role="alert"
+								>
 									{errors.manufacturer}
 								</small>
-							) : null}
+							) : (
+								<small
+									id={manufacturerHelperId}
+									className="text-xs text-slate-500 dark:text-slate-400"
+								>
+									Required. The spring manufacturer or brand name.
+								</small>
+							)}
 						</div>
 
 						<div className="grid gap-1.5 text-sm font-medium">
@@ -195,6 +260,9 @@ export function CalculatorForm({
 								}
 								placeholder="e.g. ASC91322"
 								aria-invalid={Boolean(errors.partNumber)}
+								aria-describedby={
+									errors.partNumber ? undefined : partNumberHelperId
+								}
 								className={
 									errors.partNumber
 										? "h-8 border-red-500 bg-white text-sm focus-visible:ring-red-500 dark:bg-slate-900"
@@ -202,10 +270,20 @@ export function CalculatorForm({
 								}
 							/>
 							{errors.partNumber ? (
-								<small className="text-xs font-medium text-red-500">
+								<small
+									className="text-xs font-medium text-red-500"
+									role="alert"
+								>
 									{errors.partNumber}
 								</small>
-							) : null}
+							) : (
+								<small
+									id={partNumberHelperId}
+									className="text-xs text-slate-500 dark:text-slate-400"
+								>
+									Required. The manufacturer's part or model number.
+								</small>
+							)}
 						</div>
 
 						<div className="grid gap-1.5 text-sm font-medium">
@@ -221,6 +299,9 @@ export function CalculatorForm({
 								}
 								placeholder="https://..."
 								aria-invalid={Boolean(errors.purchaseUrl)}
+								aria-describedby={
+									errors.purchaseUrl ? undefined : purchaseUrlHelperId
+								}
 								className={
 									errors.purchaseUrl
 										? "h-8 border-red-500 bg-white text-sm focus-visible:ring-red-500 dark:bg-slate-900"
@@ -228,10 +309,20 @@ export function CalculatorForm({
 								}
 							/>
 							{errors.purchaseUrl ? (
-								<small className="text-xs font-medium text-red-500">
+								<small
+									className="text-xs font-medium text-red-500"
+									role="alert"
+								>
 									{errors.purchaseUrl}
 								</small>
-							) : null}
+							) : (
+								<small
+									id={purchaseUrlHelperId}
+									className="text-xs text-slate-500 dark:text-slate-400"
+								>
+									Optional. Must be a valid URL (e.g., https://example.com).
+								</small>
+							)}
 						</div>
 
 						<div className="grid gap-1.5 text-sm font-medium">
@@ -257,7 +348,7 @@ export function CalculatorForm({
 						: `${formatValue(derivedDavg)} ${units}`}
 				</div>
 				{errors.Davg ? (
-					<small className="text-xs font-medium text-red-500">
+					<small className="text-xs font-medium text-red-500" role="alert">
 						{errors.Davg}
 					</small>
 				) : null}
