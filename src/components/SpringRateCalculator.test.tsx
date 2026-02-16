@@ -264,4 +264,170 @@ describe("SpringRateCalculator", () => {
 		expect(screen.getByLabelText("Part number")).toHaveValue("");
 		expect(screen.getByLabelText("Notes (optional)")).toHaveValue("");
 	});
+
+	it("resets bulk-delete confirmation when selection is cleared", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		await fillValidForm(user);
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await user.clear(screen.getByLabelText("Wire diameter d"));
+		await user.clear(screen.getByLabelText("Coil OD D"));
+		await user.clear(screen.getByLabelText("Active coils n"));
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.8");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-B");
+		await user.type(screen.getByLabelText("Part number"), "PN-B");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(2);
+		});
+
+		const checkboxes = screen.getAllByRole("checkbox");
+		await user.click(checkboxes[1]);
+		await user.click(checkboxes[2]);
+
+		expect(screen.getByText("2 rows selected")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Delete selected" }));
+		expect(
+			screen.getByRole("button", { name: "Confirm delete 2" }),
+		).toBeInTheDocument();
+
+		// Cancel the bulk delete and clear selection manually
+		await user.click(screen.getByRole("button", { name: "Cancel" }));
+		await user.click(screen.getByRole("button", { name: "Clear selection" }));
+
+		// Verify selection is cleared and confirm state is not visible
+		await waitFor(() => {
+			expect(screen.queryByText("2 rows selected")).not.toBeInTheDocument();
+		});
+		expect(
+			screen.queryByRole("button", { name: "Confirm delete 2" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("resets bulk-delete confirmation after clear all", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		await fillValidForm(user);
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(1);
+		});
+
+		const checkboxes = screen.getAllByRole("checkbox");
+		await user.click(checkboxes[1]);
+
+		expect(screen.getByText("1 row selected")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Delete selected" }));
+		expect(
+			screen.getByRole("button", { name: "Confirm delete 1" }),
+		).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Clear all" }));
+		await user.click(screen.getByRole("button", { name: "Confirm clear" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(0);
+		});
+
+		expect(screen.queryByText("1 row selected")).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Confirm delete 1" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("resets bulk-delete confirmation when single-row delete removes selected row", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		await fillValidForm(user);
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(1);
+		});
+
+		const checkboxes = screen.getAllByRole("checkbox");
+		await user.click(checkboxes[1]);
+
+		expect(screen.getByText("1 row selected")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Delete selected" }));
+		expect(
+			screen.getByRole("button", { name: "Confirm delete 1" }),
+		).toBeInTheDocument();
+
+		const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+		await user.click(deleteButtons[deleteButtons.length - 1]);
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(0);
+		});
+
+		expect(screen.queryByText("1 row selected")).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Confirm delete 1" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("completes bulk-delete confirm flow successfully", async () => {
+		const user = userEvent.setup();
+		render(<SpringRateCalculator />);
+
+		await fillValidForm(user);
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await user.clear(screen.getByLabelText("Wire diameter d"));
+		await user.clear(screen.getByLabelText("Coil OD D"));
+		await user.clear(screen.getByLabelText("Active coils n"));
+		await user.clear(screen.getByLabelText("Manufacturer"));
+		await user.clear(screen.getByLabelText("Part number"));
+
+		await user.type(screen.getByLabelText("Wire diameter d"), "1.8");
+		await user.type(screen.getByLabelText("Coil OD D"), "10.5");
+		await user.type(screen.getByLabelText("Active coils n"), "6");
+		await user.type(screen.getByLabelText("Manufacturer"), "MFG-B");
+		await user.type(screen.getByLabelText("Part number"), "PN-B");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(2);
+		});
+
+		const checkboxes = screen.getAllByRole("checkbox");
+		await user.click(checkboxes[1]);
+		await user.click(checkboxes[2]);
+
+		expect(screen.getByText("2 rows selected")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Delete selected" }));
+		expect(
+			screen.getByRole("button", { name: "Confirm delete 2" }),
+		).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Confirm delete 2" }));
+
+		await waitFor(async () => {
+			await expect(listCalculations()).resolves.toHaveLength(0);
+		});
+
+		expect(screen.queryByText("2 rows selected")).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Delete selected" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Confirm delete 2" }),
+		).not.toBeInTheDocument();
+	});
 });

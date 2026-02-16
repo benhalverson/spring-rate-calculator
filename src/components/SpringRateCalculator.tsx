@@ -200,6 +200,12 @@ export function SpringRateCalculator() {
 		setIsIosSafari(isIOSDevice && isSafariBrowser);
 	}, []);
 
+	useEffect(() => {
+		if (selectedIds.size === 0 && isConfirmingBulkDelete) {
+			setIsConfirmingBulkDelete(false);
+		}
+	}, [selectedIds.size, isConfirmingBulkDelete]);
+
 	const runSaveValidation = (): ValidationResult => {
 		const nextErrors: Record<string, string> = {};
 		if (parsedD === undefined) {
