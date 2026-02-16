@@ -66,7 +66,10 @@ export function SavedCalculationsTable({
 	return (
 		<Card className="md:col-span-2">
 			<CardHeader className="flex-row items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-				<CardTitle className="text-[1.05rem] text-slate-700 dark:text-slate-100">
+				<CardTitle
+					className="text-[1.05rem] text-slate-700 dark:text-slate-100"
+					id="saved-calculations-heading"
+				>
 					Saved
 				</CardTitle>
 				<div className="inline-flex items-center gap-2">
@@ -76,6 +79,11 @@ export function SavedCalculationsTable({
 						size="sm"
 						className="h-8 bg-slate-50 text-blue-600 dark:bg-slate-800 dark:text-blue-300"
 						onClick={() => void onClearAll()}
+						aria-label={
+							isConfirmingClearAll
+								? `Confirm clearing all ${records.length} saved calculations`
+								: `Clear all ${records.length} saved calculations`
+						}
 					>
 						{isConfirmingClearAll ? "Confirm clear" : "Clear all"}
 					</Button>
@@ -86,6 +94,7 @@ export function SavedCalculationsTable({
 							size="sm"
 							className="h-8"
 							onClick={onCancelClearAll}
+							aria-label="Cancel clearing all calculations"
 						>
 							Cancel
 						</Button>
@@ -102,17 +111,36 @@ export function SavedCalculationsTable({
 			) : (
 				<>
 					{selectedCount > 0 ? (
-						<div className="flex items-center justify-between border-b border-slate-200 bg-blue-50 px-4 py-3 dark:border-slate-800 dark:bg-blue-950/30">
-							<span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+						// biome-ignore lint/a11y/useSemanticElements: div with role="status" is appropriate for dynamic selection status
+						<div
+							className="flex items-center justify-between border-b border-slate-200 bg-blue-50 px-4 py-3 dark:border-slate-800 dark:bg-blue-950/30"
+							role="status"
+							aria-live="polite"
+							aria-atomic="true"
+						>
+							<span
+								className="text-sm font-medium text-slate-700 dark:text-slate-200"
+								id="selection-status"
+							>
 								{selectedCount} row{selectedCount !== 1 ? "s" : ""} selected
 							</span>
-							<div className="inline-flex items-center gap-2">
+							{/* biome-ignore lint/a11y/useSemanticElements: div with role="group" is appropriate for grouping action buttons */}
+							<div
+								className="inline-flex items-center gap-2"
+								role="group"
+								aria-labelledby="selection-status"
+							>
 								<Button
 									type="button"
 									variant="destructive"
 									size="sm"
 									className="h-8"
 									onClick={() => void onBulkDelete()}
+									aria-label={
+										isConfirmingBulkDelete
+											? `Confirm deletion of ${selectedCount} selected calculation${selectedCount !== 1 ? "s" : ""}`
+											: `Delete ${selectedCount} selected calculation${selectedCount !== 1 ? "s" : ""}`
+									}
 								>
 									{isConfirmingBulkDelete
 										? `Confirm delete ${selectedCount}`
@@ -125,6 +153,7 @@ export function SavedCalculationsTable({
 										size="sm"
 										className="h-8"
 										onClick={onCancelBulkDelete}
+										aria-label="Cancel bulk deletion"
 									>
 										Cancel
 									</Button>
@@ -135,6 +164,7 @@ export function SavedCalculationsTable({
 										size="sm"
 										className="h-8"
 										onClick={onClearSelection}
+										aria-label={`Clear selection of ${selectedCount} row${selectedCount !== 1 ? "s" : ""}`}
 									>
 										Clear selection
 									</Button>
@@ -145,7 +175,7 @@ export function SavedCalculationsTable({
 
 					<CardContent className="px-4 py-4">
 						<div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
-							<Table>
+							<Table aria-labelledby="saved-calculations-heading">
 								<TableHeader>
 									<TableRow className="bg-slate-50 dark:bg-slate-900">
 										<TableHead scope="col" className="w-12">
@@ -157,7 +187,14 @@ export function SavedCalculationsTable({
 													}
 												}}
 												onChange={onToggleSelectAll}
-												aria-label="Select all rows"
+												aria-label={`Select all ${records.length} rows`}
+												aria-checked={
+													allSelected
+														? "true"
+														: someSelected
+															? "mixed"
+															: "false"
+												}
 											/>
 										</TableHead>
 										<TableHead scope="col">Manufacturer</TableHead>
@@ -192,6 +229,9 @@ export function SavedCalculationsTable({
 													checked={selectedIds.has(record.id)}
 													onChange={() => onToggleSelection(record.id)}
 													aria-label={`Select row for ${record.manufacturer || "Unknown"} ${record.partNumber || "Unknown"}`}
+													aria-checked={
+														selectedIds.has(record.id) ? "true" : "false"
+													}
 												/>
 											</TableCell>
 											<TableCell>{record.manufacturer}</TableCell>
@@ -208,7 +248,8 @@ export function SavedCalculationsTable({
 														className="text-blue-500 underline-offset-2 hover:underline"
 														href={record.purchaseUrl}
 														target="_blank"
-														rel="noopener"
+														rel="noopener noreferrer"
+														aria-label={`Purchase link for ${record.manufacturer || "Unknown"} ${record.partNumber || "Unknown"}`}
 													>
 														Link
 													</a>
@@ -218,13 +259,19 @@ export function SavedCalculationsTable({
 											</TableCell>
 											<TableCell>{record.notes || "—"}</TableCell>
 											<TableCell>
-												<div className="inline-flex flex-wrap gap-2">
+												{/* biome-ignore lint/a11y/useSemanticElements: div with role="group" is appropriate for grouping related action buttons */}
+												<div
+													className="inline-flex flex-wrap gap-2"
+													role="group"
+													aria-label={`Actions for ${record.manufacturer || "Unknown"} ${record.partNumber || "Unknown"}`}
+												>
 													<Button
 														type="button"
 														variant="outline"
 														size="sm"
 														className="h-7"
 														onClick={() => onLoad(record)}
+														aria-label={`Load calculation for ${record.manufacturer || "Unknown"} ${record.partNumber || "Unknown"}`}
 													>
 														Load
 													</Button>
@@ -234,6 +281,7 @@ export function SavedCalculationsTable({
 														size="sm"
 														className="h-7"
 														onClick={() => void onDelete(record.id)}
+														aria-label={`Delete calculation for ${record.manufacturer || "Unknown"} ${record.partNumber || "Unknown"}`}
 													>
 														Delete
 													</Button>
