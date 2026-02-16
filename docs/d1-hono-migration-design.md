@@ -356,7 +356,7 @@ CREATE TABLE calculations (
   d REAL NOT NULL,
   D REAL NOT NULL,
   n REAL NOT NULL,
-  davg REAL NOT NULL,
+  d_avg REAL NOT NULL,  -- Average diameter (D - d)
   k REAL NOT NULL,
   
   -- Sync metadata
@@ -639,8 +639,13 @@ const corsHeaders = {
 const cspHeader = 
   "default-src 'self'; " +
   "connect-src 'self' https://*.benhalverson.workers.dev; " +
-  "script-src 'self' 'unsafe-inline'; " +
-  "style-src 'self' 'unsafe-inline';";
+  "script-src 'self'; " +  // Remove 'unsafe-inline', use nonce/hash for inline scripts
+  "style-src 'self';";     // Remove 'unsafe-inline', use nonce/hash for inline styles
+
+// Note: For React/Vite apps, consider using a nonce-based CSP:
+// 1. Generate nonce per request: const nonce = crypto.randomUUID()
+// 2. Add to CSP: script-src 'self' 'nonce-${nonce}'
+// 3. Pass nonce to HTML template for inline scripts
 ```
 
 ---
