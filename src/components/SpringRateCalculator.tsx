@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
 	addCalculation,
@@ -23,13 +23,12 @@ import { SpringViz } from "./SpringViz";
 import { CalculatorForm } from "./springCalculator/CalculatorForm";
 import { CalculatorHeader } from "./springCalculator/CalculatorHeader";
 import { SavedCalculationsTable } from "./springCalculator/SavedCalculationsTable";
+import { useTableState } from "./springCalculator/useTableState";
 import {
 	type BeforeInstallPromptEvent,
 	type CalculatorInputs,
 	EMPTY_VALIDATION,
-	type KSortDirection,
 	parseNumber,
-	toggleKSortDirection,
 } from "./springCalculator/utils";
 
 const EMPTY_INPUTS: CalculatorInputs = {
@@ -56,12 +55,12 @@ export function SpringRateCalculator() {
 	const [toast, setToast] = useState<string | null>(null);
 	const [isConfirmingClearAll, setIsConfirmingClearAll] = useState(false);
 	const [invalidSaveAttempted, setInvalidSaveAttempted] = useState(false);
-	const [kSortDirection, setKSortDirection] = useState<KSortDirection>("none");
 	const [deferredInstallPrompt, setDeferredInstallPrompt] =
 		useState<BeforeInstallPromptEvent | null>(null);
 	const [isIosSafari, setIsIosSafari] = useState(false);
-	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-	const [isConfirmingBulkDelete, setIsConfirmingBulkDelete] = useState(false);
+
+	// Use consolidated table state hook
+	const tableState = useTableState(history);
 
 	const parsedD = parseNumber(inputs.dInput);
 	const parsedDOuter = parseNumber(inputs.DInput);
@@ -109,18 +108,6 @@ export function SpringRateCalculator() {
 		computedValidation.ok &&
 		computedK !== undefined &&
 		hasRequiredSourceDetails;
-
-	const displayedHistory = useMemo(() => {
-		if (kSortDirection === "none") {
-			return history;
-		}
-
-		const sorted = [...history].sort((a, b) => {
-			return kSortDirection === "asc" ? a.k - b.k : b.k - a.k;
-		});
-
-		return sorted;
-	}, [history, kSortDirection]);
 
 	const setInputValue = (
 		field: keyof CalculatorInputs,
@@ -200,7 +187,7 @@ export function SpringRateCalculator() {
 		setIsIosSafari(isIOSDevice && isSafariBrowser);
 	}, []);
 
-	const runSaveValidation = (): ValidationResult => {
+	const runSaveValidation = useCallback((): ValidationResult => {
 		const nextErrors: Record<string, string> = {};
 		if (parsedD === undefined) {
 			nextErrors.d = "Wire diameter d is required.";
@@ -238,9 +225,16 @@ export function SpringRateCalculator() {
 		}
 
 		return validateInputs(parsedD, parsedDOuter, parsedN);
-	};
+	}, [
+		normalizedManufacturer,
+		normalizedPartNumber,
+		normalizedPurchaseUrl,
+		parsedD,
+		parsedDOuter,
+		parsedN,
+	]);
 
-	const handleSave = async (): Promise<void> => {
+	const handleSave = useCallback(async (): Promise<void> => {
 		const validation = runSaveValidation();
 		setErrors(validation.errors);
 		setWarnings(validation.warnings);
@@ -277,16 +271,28 @@ export function SpringRateCalculator() {
 		await addCalculation(record);
 		setHistory((previous) => [record, ...previous]);
 		setToast("Calculation saved.");
-	};
+	}, [
+		computedK,
+		derivedDavg,
+		normalizedManufacturer,
+		normalizedNotes,
+		normalizedPartNumber,
+		normalizedPurchaseUrl,
+		parsedD,
+		parsedDOuter,
+		parsedN,
+		runSaveValidation,
+		units,
+	]);
 
-	const handleReset = (): void => {
+	const handleReset = useCallback((): void => {
 		setInputs(EMPTY_INPUTS);
 		setErrors({});
 		setWarnings({});
 		setToast("Inputs reset.");
-	};
+	}, []);
 
-	const handleLoad = (record: SpringCalcRecord): void => {
+	const handleLoad = useCallback((record: SpringCalcRecord): void => {
 		setInputs({
 			dInput: String(record.d),
 			DInput: String(record.D),
@@ -300,67 +306,37 @@ export function SpringRateCalculator() {
 		setErrors({});
 		setWarnings({});
 		setToast("Saved calculation loaded.");
-	};
+	}, []);
 
-	const handleDelete = async (id: string): Promise<void> => {
-		await deleteCalculation(id);
-		setHistory((previous) => previous.filter((record) => record.id !== id));
-		setSelectedIds((previous) => {
-			const next = new Set(previous);
-			next.delete(id);
-			return next;
-		});
-		setToast("Saved calculation deleted.");
-	};
+	const handleDelete = useCallback(
+		async (id: string): Promise<void> => {
+			await deleteCalculation(id);
+			setHistory((previous) => previous.filter((record) => record.id !== id));
+			tableState.removeFromSelection(id);
+			setToast("Saved calculation deleted.");
+		},
+		[tableState],
+	);
 
-	const handleToggleSelection = (id: string): void => {
-		setSelectedIds((previous) => {
-			const next = new Set(previous);
-			if (next.has(id)) {
-				next.delete(id);
-			} else {
-				next.add(id);
-			}
-			return next;
-		});
-	};
-
-	const handleToggleSelectAll = (): void => {
-		if (selectedIds.size === displayedHistory.length) {
-			setSelectedIds(new Set());
-		} else {
-			setSelectedIds(new Set(displayedHistory.map((record) => record.id)));
-		}
-	};
-
-	const handleBulkDelete = async (): Promise<void> => {
-		if (!isConfirmingBulkDelete) {
-			setIsConfirmingBulkDelete(true);
+	const handleBulkDelete = useCallback(async (): Promise<void> => {
+		if (!tableState.isConfirmingBulkDelete) {
+			tableState.startBulkDelete();
 			return;
 		}
 
-		const idsToDelete = Array.from(selectedIds);
+		const idsToDelete = Array.from(tableState.selectedIds);
 		await bulkDeleteCalculations(idsToDelete);
 		setHistory((previous) =>
-			previous.filter((record) => !selectedIds.has(record.id)),
+			previous.filter((record) => !tableState.selectedIds.has(record.id)),
 		);
 		const deletedCount = idsToDelete.length;
-		setSelectedIds(new Set());
-		setIsConfirmingBulkDelete(false);
+		tableState.completeBulkDelete();
 		setToast(
 			`${deletedCount} calculation${deletedCount !== 1 ? "s" : ""} deleted.`,
 		);
-	};
+	}, [tableState]);
 
-	const handleCancelBulkDelete = (): void => {
-		setIsConfirmingBulkDelete(false);
-	};
-
-	const handleClearSelection = (): void => {
-		setSelectedIds(new Set());
-	};
-
-	const handleClearAll = async (): Promise<void> => {
+	const handleClearAll = useCallback(async (): Promise<void> => {
 		if (!isConfirmingClearAll) {
 			setIsConfirmingClearAll(true);
 			return;
@@ -368,29 +344,28 @@ export function SpringRateCalculator() {
 
 		await clearCalculations();
 		setHistory([]);
-		setSelectedIds(new Set());
+		tableState.clearSelection();
 		setIsConfirmingClearAll(false);
 		setToast("All saved calculations cleared.");
-	};
+	}, [isConfirmingClearAll, tableState]);
 
-	const cancelClearAll = (): void => setIsConfirmingClearAll(false);
+	const cancelClearAll = useCallback(
+		(): void => setIsConfirmingClearAll(false),
+		[],
+	);
 
-	const handleInstall = async (): Promise<void> => {
+	const handleInstall = useCallback(async (): Promise<void> => {
 		if (!deferredInstallPrompt) {
 			return;
 		}
 		await deferredInstallPrompt.prompt();
 		await deferredInstallPrompt.userChoice;
 		setDeferredInstallPrompt(null);
-	};
+	}, [deferredInstallPrompt]);
 
-	const toggleKSort = (): void => {
-		setKSortDirection((current) => toggleKSortDirection(current));
-	};
-
-	const handleThemeToggle = (): void => {
+	const handleThemeToggle = useCallback((): void => {
 		setIsDarkMode((current) => !current);
-	};
+	}, []);
 
 	return (
 		<div className="mx-auto w-full max-w-[1120px] px-4 py-6 md:px-6 md:py-8">
@@ -431,21 +406,21 @@ export function SpringRateCalculator() {
 					/>
 
 					<SavedCalculationsTable
-						records={displayedHistory}
+						records={tableState.sortedRecords}
 						isConfirmingClearAll={isConfirmingClearAll}
-						kSortDirection={kSortDirection}
-						selectedIds={selectedIds}
-						isConfirmingBulkDelete={isConfirmingBulkDelete}
-						onToggleSort={toggleKSort}
+						kSortDirection={tableState.kSortDirection}
+						selectedIds={tableState.selectedIds}
+						isConfirmingBulkDelete={tableState.isConfirmingBulkDelete}
+						onToggleSort={tableState.toggleSort}
 						onClearAll={handleClearAll}
 						onCancelClearAll={cancelClearAll}
 						onLoad={handleLoad}
 						onDelete={handleDelete}
-						onToggleSelection={handleToggleSelection}
-						onToggleSelectAll={handleToggleSelectAll}
+						onToggleSelection={tableState.toggleSelection}
+						onToggleSelectAll={tableState.toggleSelectAll}
 						onBulkDelete={handleBulkDelete}
-						onCancelBulkDelete={handleCancelBulkDelete}
-						onClearSelection={handleClearSelection}
+						onCancelBulkDelete={tableState.cancelBulkDelete}
+						onClearSelection={tableState.clearSelection}
 					/>
 				</main>
 			</div>

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { SpringCalcRecord } from "../../types/spring";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -21,7 +22,7 @@ import {
 /**
  * Props for the saved calculations table section.
  */
-interface SavedCalculationsTableProps {
+type SavedCalculationsTableProps = {
 	records: SpringCalcRecord[];
 	isConfirmingClearAll: boolean;
 	kSortDirection: KSortDirection;
@@ -37,12 +38,13 @@ interface SavedCalculationsTableProps {
 	onBulkDelete: () => Promise<void>;
 	onCancelBulkDelete: () => void;
 	onClearSelection: () => void;
-}
+};
 
 /**
  * Renders persisted calculations in a sortable data table with row actions.
+ * Memoized to prevent unnecessary re-renders when parent state changes.
  */
-export function SavedCalculationsTable({
+const SavedCalculationsTableComponent = ({
 	records,
 	isConfirmingClearAll,
 	kSortDirection,
@@ -58,7 +60,7 @@ export function SavedCalculationsTable({
 	onBulkDelete,
 	onCancelBulkDelete,
 	onClearSelection,
-}: SavedCalculationsTableProps) {
+}: SavedCalculationsTableProps): React.JSX.Element => {
 	const selectedCount = selectedIds.size;
 	const allSelected = records.length > 0 && selectedCount === records.length;
 	const someSelected = selectedCount > 0 && selectedCount < records.length;
@@ -249,4 +251,9 @@ export function SavedCalculationsTable({
 			)}
 		</Card>
 	);
-}
+};
+
+/**
+ * Memoized version of SavedCalculationsTable to prevent unnecessary re-renders.
+ */
+export const SavedCalculationsTable = memo(SavedCalculationsTableComponent);
