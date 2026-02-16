@@ -4,7 +4,8 @@
 	"version": "0.0.0",
 	"type": "module",
 	"scripts": {
-		"dev": "vite",
+		"dev": "wrangler dev",
+		"dev:vite": "vite",
 		"build": "tsc -b && vite build",
 		"deploy": "pnpm build && wrangler deploy",
 		"lint": "biome check .",
@@ -19,6 +20,7 @@
 		"clsx": "^2.1.1",
 		"dexie": "^4.3.0",
 		"framer-motion": "^12.34.0",
+		"hono": "^4.11.9",
 		"lucide-react": "^0.564.0",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",

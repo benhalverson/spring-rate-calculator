@@ -1,14 +1,16 @@
-interface WorkerEnv {
-	ASSETS: {
-		fetch: (request: Request) => Promise<Response>;
-	};
-}
+import { Hono } from "hono";
+
+import { createApiApp } from "./api";
+import type { ApiBindings } from "./api/types/env";
+
+const app = new Hono<ApiBindings>();
+
+app.route("/api/v1", createApiApp());
+app.all("*", async (context) => {
+	return context.env.ASSETS.fetch(context.req.raw);
+});
 
 /**
  * Cloudflare Worker entrypoint that serves built static assets.
  */
-export default {
-	async fetch(request: Request, env: WorkerEnv): Promise<Response> {
-		return env.ASSETS.fetch(request);
-	},
-};
+export default app;
