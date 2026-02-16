@@ -23,6 +23,12 @@ import { SpringViz } from "./SpringViz";
 import { CalculatorForm } from "./springCalculator/CalculatorForm";
 import { CalculatorHeader } from "./springCalculator/CalculatorHeader";
 import { ComparePanel } from "./springCalculator/ComparePanel";
+import type { FilterState } from "./springCalculator/FilterControls";
+import {
+	applyFilters,
+	countActiveFilters,
+	getEmptyFilters,
+} from "./springCalculator/filterUtils";
 import { SavedCalculationsTable } from "./springCalculator/SavedCalculationsTable";
 import {
 	type BeforeInstallPromptEvent,
@@ -64,6 +70,7 @@ export function SpringRateCalculator() {
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	const [isConfirmingBulkDelete, setIsConfirmingBulkDelete] = useState(false);
 	const [showComparePanel, setShowComparePanel] = useState(false);
+	const [filters, setFilters] = useState<FilterState>(getEmptyFilters());
 
 	const parsedD = parseNumber(inputs.dInput);
 	const parsedDOuter = parseNumber(inputs.DInput);
@@ -112,17 +119,27 @@ export function SpringRateCalculator() {
 		computedK !== undefined &&
 		hasRequiredSourceDetails;
 
+	const filteredHistory = useMemo(() => {
+		return applyFilters(history, filters);
+	}, [history, filters]);
+
 	const displayedHistory = useMemo(() => {
 		if (kSortDirection === "none") {
-			return history;
+			return filteredHistory;
 		}
 
-		const sorted = [...history].sort((a, b) => {
+		const sorted = [...filteredHistory].sort((a, b) => {
 			return kSortDirection === "asc" ? a.k - b.k : b.k - a.k;
 		});
 
 		return sorted;
-	}, [history, kSortDirection]);
+	}, [filteredHistory, kSortDirection]);
+
+	const activeFilterCount = useMemo(() => {
+		return countActiveFilters(filters);
+	}, [filters]);
+
+	const hasNoMatches = history.length > 0 && filteredHistory.length === 0;
 
 	const setInputValue = (
 		field: keyof CalculatorInputs,
@@ -414,6 +431,20 @@ export function SpringRateCalculator() {
 		setShowComparePanel(false);
 	};
 
+	const handleFilterChange = (
+		field: keyof FilterState,
+		value: string,
+	): void => {
+		setFilters((previous) => ({
+			...previous,
+			[field]: value,
+		}));
+	};
+
+	const handleClearAllFilters = (): void => {
+		setFilters(getEmptyFilters());
+	};
+
 	const selectedRecords = useMemo(() => {
 		return history.filter((record) => selectedIds.has(record.id));
 	}, [history, selectedIds]);
@@ -462,6 +493,9 @@ export function SpringRateCalculator() {
 						kSortDirection={kSortDirection}
 						selectedIds={selectedIds}
 						isConfirmingBulkDelete={isConfirmingBulkDelete}
+						filters={filters}
+						activeFilterCount={activeFilterCount}
+						hasNoMatches={hasNoMatches}
 						onToggleSort={toggleKSort}
 						onClearAll={handleClearAll}
 						onCancelClearAll={cancelClearAll}
@@ -473,6 +507,8 @@ export function SpringRateCalculator() {
 						onBulkDelete={handleBulkDelete}
 						onCancelBulkDelete={handleCancelBulkDelete}
 						onClearSelection={handleClearSelection}
+						onFilterChange={handleFilterChange}
+						onClearAllFilters={handleClearAllFilters}
 					/>
 
 					{showComparePanel ? (

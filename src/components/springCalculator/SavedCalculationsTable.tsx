@@ -10,6 +10,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "../ui/table";
+import { FilterControls, type FilterState } from "./FilterControls";
 import {
 	formatK,
 	formatValue,
@@ -27,6 +28,9 @@ interface SavedCalculationsTableProps {
 	kSortDirection: KSortDirection;
 	selectedIds: Set<string>;
 	isConfirmingBulkDelete: boolean;
+	filters: FilterState;
+	activeFilterCount: number;
+	hasNoMatches: boolean;
 	onToggleSort: () => void;
 	onClearAll: () => Promise<void>;
 	onCancelClearAll: () => void;
@@ -38,6 +42,8 @@ interface SavedCalculationsTableProps {
 	onCancelBulkDelete: () => void;
 	onClearSelection: () => void;
 	onCompare: () => void;
+	onFilterChange: (field: keyof FilterState, value: string) => void;
+	onClearAllFilters: () => void;
 }
 
 /**
@@ -49,6 +55,9 @@ export function SavedCalculationsTable({
 	kSortDirection,
 	selectedIds,
 	isConfirmingBulkDelete,
+	filters,
+	activeFilterCount,
+	hasNoMatches,
 	onToggleSort,
 	onClearAll,
 	onCancelClearAll,
@@ -60,6 +69,8 @@ export function SavedCalculationsTable({
 	onCancelBulkDelete,
 	onClearSelection,
 	onCompare,
+	onFilterChange,
+	onClearAllFilters,
 }: SavedCalculationsTableProps) {
 	const selectedCount = selectedIds.size;
 	const allSelected = records.length > 0 && selectedCount === records.length;
@@ -112,10 +123,19 @@ export function SavedCalculationsTable({
 				</div>
 			</CardHeader>
 
+			<FilterControls
+				filters={filters}
+				activeFilterCount={activeFilterCount}
+				onFilterChange={onFilterChange}
+				onClearAllFilters={onClearAllFilters}
+			/>
+
 			{records.length === 0 ? (
 				<CardContent className="px-4 py-4">
 					<p className="text-sm text-slate-600 dark:text-slate-300">
-						No saved calculations yet. Save your results here.
+						{hasNoMatches
+							? "No calculations match your filters. Try adjusting or clearing filters."
+							: "No saved calculations yet. Save your results here."}
 					</p>
 				</CardContent>
 			) : (
