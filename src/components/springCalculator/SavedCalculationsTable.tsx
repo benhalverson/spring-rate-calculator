@@ -22,7 +22,7 @@ import {
 /**
  * Props for the saved calculations table section.
  */
-type SavedCalculationsTableProps = {
+interface SavedCalculationsTableProps {
 	records: SpringCalcRecord[];
 	isConfirmingClearAll: boolean;
 	kSortDirection: KSortDirection;
@@ -38,7 +38,7 @@ type SavedCalculationsTableProps = {
 	onBulkDelete: () => Promise<void>;
 	onCancelBulkDelete: () => void;
 	onClearSelection: () => void;
-};
+}
 
 /**
  * Renders persisted calculations in a sortable data table with row actions.

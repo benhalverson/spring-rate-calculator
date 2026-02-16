@@ -21,9 +21,7 @@ describe("SpringRateCalculator - Combined Interactions", () => {
 		await clearCalculations();
 	});
 
-	it(
-		"maintains state consistency when sorting, selecting, and deleting records",
-		async () => {
+	it("maintains state consistency when sorting, selecting, and deleting records", async () => {
 		const user = userEvent.setup();
 		render(<SpringRateCalculator />);
 
@@ -33,7 +31,9 @@ describe("SpringRateCalculator - Combined Interactions", () => {
 		await user.type(screen.getByLabelText("Wire diameter d"), "1.5"); // Higher k
 		await user.click(screen.getByRole("button", { name: "Save" }));
 		await waitFor(() => {
-			expect(screen.getByRole("cell", { name: "PART-001" })).toBeInTheDocument();
+			expect(
+				screen.getByRole("cell", { name: "PART-001" }),
+			).toBeInTheDocument();
 		});
 
 		await user.click(screen.getByRole("button", { name: "Reset" }));
@@ -42,7 +42,9 @@ describe("SpringRateCalculator - Combined Interactions", () => {
 		await user.type(screen.getByLabelText("Wire diameter d"), "1.0"); // Lower k
 		await user.click(screen.getByRole("button", { name: "Save" }));
 		await waitFor(() => {
-			expect(screen.getByRole("cell", { name: "PART-002" })).toBeInTheDocument();
+			expect(
+				screen.getByRole("cell", { name: "PART-002" }),
+			).toBeInTheDocument();
 		});
 
 		await user.click(screen.getByRole("button", { name: "Reset" }));
@@ -51,7 +53,9 @@ describe("SpringRateCalculator - Combined Interactions", () => {
 		await user.type(screen.getByLabelText("Wire diameter d"), "1.2"); // Medium k
 		await user.click(screen.getByRole("button", { name: "Save" }));
 		await waitFor(() => {
-			expect(screen.getByRole("cell", { name: "PART-003" })).toBeInTheDocument();
+			expect(
+				screen.getByRole("cell", { name: "PART-003" }),
+			).toBeInTheDocument();
 		});
 
 		// Verify all three records are present
@@ -144,9 +148,7 @@ describe("SpringRateCalculator - Combined Interactions", () => {
 
 		// Verify remaining record is still visible
 		expect(screen.getByRole("cell", { name: "PART-002" })).toBeInTheDocument();
-	},
-		10000,
-	); // Increased timeout for this complex test
+	}, 10000); // Increased timeout for this complex test
 
 	it("maintains stable behavior when toggling select all across sort changes", async () => {
 		const user = userEvent.setup();
@@ -234,7 +236,9 @@ describe("SpringRateCalculator - Combined Interactions", () => {
 		const dataRows = allRows.slice(1); // Skip header row
 
 		// Find the row containing PART-Y and click its Load button
-		const partYRow = dataRows.find((row) => row.textContent?.includes("PART-Y"));
+		const partYRow = dataRows.find((row) =>
+			row.textContent?.includes("PART-Y"),
+		);
 		expect(partYRow).toBeDefined();
 
 		const loadButton = partYRow

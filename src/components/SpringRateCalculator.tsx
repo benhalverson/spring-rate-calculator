@@ -349,10 +349,10 @@ export function SpringRateCalculator() {
 		setToast("All saved calculations cleared.");
 	}, [isConfirmingClearAll, tableState]);
 
-	const cancelClearAll = useCallback(
-		(): void => setIsConfirmingClearAll(false),
-		[],
-	);
+	const cancelClearAll = useCallback((): void => {
+		// State setters from useState are stable and don't need to be in deps
+		setIsConfirmingClearAll(false);
+	}, []);
 
 	const handleInstall = useCallback(async (): Promise<void> => {
 		if (!deferredInstallPrompt) {
