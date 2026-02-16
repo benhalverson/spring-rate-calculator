@@ -265,7 +265,7 @@ describe("SpringRateCalculator", () => {
 		expect(screen.getByLabelText("Notes (optional)")).toHaveValue("");
 	});
 
-	it("deletes correct records even when selection changes during bulk delete", async () => {
+	it("deletes correct records using snapshot of selection at click time", async () => {
 		const user = userEvent.setup();
 		render(<SpringRateCalculator />);
 
