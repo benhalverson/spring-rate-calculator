@@ -6,6 +6,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   quality:
     name: Lint, Test, Build
@@ -41,6 +44,8 @@ jobs:
   backend-integration:
     name: Backend Integration Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout
