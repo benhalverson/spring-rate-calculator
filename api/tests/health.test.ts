@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import app from "../src/index";
 
 describe("API Health Check", () => {
@@ -25,7 +25,7 @@ describe("API Health Check", () => {
 
 		expect(res.status).toBe(200);
 
-		const data = await res.json();
+		const data = (await res.json()) as { message: string; endpoints: { health: string } };
 		expect(data).toHaveProperty("message");
 		expect(data).toHaveProperty("endpoints");
 		expect(data.endpoints).toHaveProperty("health", "/api/v1/health");

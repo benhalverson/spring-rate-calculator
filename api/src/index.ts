@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 // Define types for Cloudflare Worker environment
+// biome-ignore lint/complexity/noBannedTypes: Empty object type is intentional for future bindings
 type Bindings = {
 	// Add D1 database binding here in the future:
 	// DB: D1Database;
