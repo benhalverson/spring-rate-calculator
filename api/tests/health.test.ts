@@ -25,7 +25,10 @@ describe("API Health Check", () => {
 
 		expect(res.status).toBe(200);
 
-		const data = (await res.json()) as { message: string; endpoints: { health: string } };
+		const data = (await res.json()) as {
+			message: string;
+			endpoints: { health: string };
+		};
 		expect(data).toHaveProperty("message");
 		expect(data).toHaveProperty("endpoints");
 		expect(data.endpoints).toHaveProperty("health", "/api/v1/health");

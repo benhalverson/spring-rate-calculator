@@ -16,6 +16,7 @@ package-lock.json
 # API build artifacts
 api/.wrangler
 api/dist
+.wrangler/tmp/
 
 # Editor directories and files
 .vscode/*
