@@ -5,10 +5,10 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"dev:api": "wrangler dev --config wrangler.api.toml",
+		"dev:api": "wrangler dev --env api",
 		"build": "tsc -b && vite build",
 		"build:api": "tsc -p api/tsconfig.json",
-		"deploy": "pnpm build && wrangler deploy",
+		"deploy": "pnpm build && wrangler deploy --env production",
 		"lint": "biome check .",
 		"format": "biome format --write .",
 		"preview": "vite preview",
