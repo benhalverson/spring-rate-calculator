@@ -8,6 +8,10 @@ export interface SessionContext {
 	isNewSession: boolean;
 }
 
+/** UUID v4 format validation pattern */
+export const UUID_V4_REGEX =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /**
  * Middleware that validates or creates session IDs.
  * Enforces that all requests have a valid X-Session-ID header.
@@ -33,9 +37,7 @@ export async function sessionMiddleware(c: Context, next: Next) {
 	}
 
 	// Validate session ID format (UUID v4)
-	const uuidRegex =
-		/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-	if (!uuidRegex.test(sessionId)) {
+	if (!UUID_V4_REGEX.test(sessionId)) {
 		return c.json(
 			{
 				success: false,

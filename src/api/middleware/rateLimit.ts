@@ -34,8 +34,15 @@ function getClientId(c: Context): string {
 /**
  * Clean up expired entries periodically to prevent memory leaks.
  */
+let lastCleanup = 0;
+const CLEANUP_INTERVAL_MS = 60_000;
+
 function cleanupExpiredEntries() {
 	const now = Date.now();
+	if (now - lastCleanup < CLEANUP_INTERVAL_MS) {
+		return;
+	}
+	lastCleanup = now;
 	for (const [key, entry] of rateLimitStore) {
 		if (now >= entry.resetTime) {
 			rateLimitStore.delete(key);
@@ -51,10 +58,8 @@ export async function rateLimitMiddleware(c: Context, next: Next) {
 	const clientId = getClientId(c);
 	const now = Date.now();
 
-	// Periodic cleanup (every ~100 requests)
-	if (Math.random() < 0.01) {
-		cleanupExpiredEntries();
-	}
+	// Time-based cleanup
+	cleanupExpiredEntries();
 
 	const entry = rateLimitStore.get(clientId);
 

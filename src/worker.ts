@@ -15,9 +15,10 @@ interface WorkerEnv {
 const app = new Hono<{ Bindings: WorkerEnv }>();
 
 // Apply middleware to all API routes
-app.use("/api/*", corsMiddleware);
+// Order: security headers first, then rate limit, CORS, and session last
 app.use("/api/*", securityHeadersMiddleware);
 app.use("/api/*", rateLimitMiddleware);
+app.use("/api/*", corsMiddleware);
 app.use("/api/*", sessionMiddleware);
 
 // Health check endpoint
