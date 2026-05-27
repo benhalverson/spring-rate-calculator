@@ -37,6 +37,7 @@ type Bindings = {
 type AppContext = Context<{ Bindings: Bindings }>;
 type CalculationPayload = z.infer<typeof CalculationRecordSchema>;
 type CalculationResponse = CalculationPayload;
+type CreateCalculationInput = z.infer<typeof CreateCalculationSchema>;
 type ListCalculationsQuery = z.infer<typeof ListCalculationsQuerySchema>;
 type ValidationDetail = {
 	path: string;
@@ -44,6 +45,8 @@ type ValidationDetail = {
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
+const SPRING_STEEL_SHEAR_MODULUS_MM = 79_000;
+const SPRING_STEEL_SHEAR_MODULUS_IN = 11_500_000;
 
 const getDb = (context: AppContext): AppDb => {
 	if (!context.env.DB) {
@@ -105,6 +108,83 @@ const validateRequest = <T>(
 	}
 
 	return result.data;
+};
+
+const getSpringSteelShearModulus = (units: "mm" | "in"): number =>
+	units === "mm"
+		? SPRING_STEEL_SHEAR_MODULUS_MM
+		: SPRING_STEEL_SHEAR_MODULUS_IN;
+
+const computeAverageDiameter = (
+	outerDiameter: number,
+	wireDiameter: number,
+): number => outerDiameter - wireDiameter;
+
+const computeSpringRate = (record: {
+	units: "mm" | "in";
+	wireDiameter: number;
+	activeCoils: number;
+	averageDiameter: number;
+}): number => {
+	const shearModulus = getSpringSteelShearModulus(record.units);
+
+	return (
+		(shearModulus * record.wireDiameter ** 4) /
+		(8 * record.activeCoils * record.averageDiameter ** 3)
+	);
+};
+
+const buildCalculationRecord = (
+	input: CreateCalculationInput,
+	now: number,
+): CalculationResponse => {
+	const averageDiameter = computeAverageDiameter(
+		input.outerDiameter,
+		input.wireDiameter,
+	);
+
+	return {
+		...input,
+		id: crypto.randomUUID(),
+		createdAt: now,
+		averageDiameter,
+		springRate: computeSpringRate({
+			...input,
+			averageDiameter,
+		}),
+	};
+};
+
+const recalculateDerivedFields = (
+	record: CalculationResponse,
+): CalculationResponse => {
+	const averageDiameter = computeAverageDiameter(
+		record.outerDiameter,
+		record.wireDiameter,
+	);
+
+	return {
+		...record,
+		averageDiameter,
+		springRate: computeSpringRate({
+			...record,
+			averageDiameter,
+		}),
+	};
+};
+
+const validateUpdatedCalculation = (
+	record: CalculationResponse,
+	context: AppContext,
+): Response | undefined => {
+	if (record.outerDiameter <= record.wireDiameter) {
+		return validationErrorResponse(context, [
+			{
+				path: "outerDiameter",
+				message: "outerDiameter must be greater than wireDiameter",
+			},
+		]);
+	}
 };
 
 const toCalculationResponse = (row: Calculation): CalculationResponse => ({
@@ -252,25 +332,7 @@ app.post("/", async (context) => {
 
 	const db = getDb(context);
 	const now = Date.now();
-	const fullRecord: CalculationResponse = {
-		...validated,
-		createdAt: validated.createdAt ?? now,
-	};
-
-	const existing = await db
-		.select({ id: calculations.id })
-		.from(calculations)
-		.where(eq(calculations.id, fullRecord.id))
-		.limit(1)
-		.all();
-
-	if (existing.length > 0) {
-		throw new HttpError(
-			409,
-			"Calculation with this ID already exists",
-			"DUPLICATE_ID",
-		);
-	}
+	const fullRecord = buildCalculationRecord(validated, now);
 
 	await db.insert(calculations).values(toNewCalculation(fullRecord, now)).run();
 
@@ -400,23 +462,23 @@ app.put("/:id", async (context) => {
 		...toCalculationResponse(existing),
 		...bodyValidated,
 	};
+	const validationError = validateUpdatedCalculation(updated, context);
 
-	if (
-		bodyValidated.wireDiameter !== undefined ||
-		bodyValidated.outerDiameter !== undefined
-	) {
-		updated.averageDiameter = updated.outerDiameter - updated.wireDiameter;
+	if (validationError) {
+		return validationError;
 	}
+
+	const updatedWithDerivedFields = recalculateDerivedFields(updated);
 
 	await db
 		.update(calculations)
-		.set(toCalculationUpdate(updated, Date.now()))
+		.set(toCalculationUpdate(updatedWithDerivedFields, Date.now()))
 		.where(eq(calculations.id, paramValidated.id))
 		.run();
 
 	const response: ApiSuccessResponse<CalculationResponse> = {
 		success: true,
-		data: updated,
+		data: updatedWithDerivedFields,
 	};
 
 	return context.json(response);

@@ -1,5 +1,27 @@
 import { z } from "zod";
 
+const springDimensionsSchema = {
+	wireDiameter: z.number().positive("wireDiameter must be positive"),
+	outerDiameter: z.number().positive("outerDiameter must be positive"),
+	activeCoils: z.number().positive("activeCoils must be positive"),
+};
+
+const validateDiameterRelationship = (
+	data: {
+		wireDiameter: number;
+		outerDiameter: number;
+	},
+	context: z.RefinementCtx,
+) => {
+	if (data.outerDiameter <= data.wireDiameter) {
+		context.addIssue({
+			code: "custom",
+			path: ["outerDiameter"],
+			message: "outerDiameter must be greater than wireDiameter",
+		});
+	}
+};
+
 /**
  * Validation schema for spring calculation records.
  * Validates units, numeric constraints, URL formats, and ID types.
@@ -30,25 +52,41 @@ export const CalculationRecordSchema = z.object({
 	units: z.enum(["mm", "in"], {
 		message: "units must be either 'mm' or 'in'",
 	}),
-	wireDiameter: z.number().positive("wireDiameter must be positive"),
-	outerDiameter: z.number().positive("outerDiameter must be positive"),
-	activeCoils: z.number().positive("activeCoils must be positive"),
+	...springDimensionsSchema,
 	averageDiameter: z.number().positive("averageDiameter must be positive"),
 	springRate: z.number().positive("springRate must be positive"),
 });
 
 /**
- * Schema for creating a new calculation (allows partial createdAt).
+ * Schema for creating a new calculation.
+ * Server-owned and derived fields are generated after validation.
  */
-export const CreateCalculationSchema = CalculationRecordSchema.omit({
-	createdAt: true,
-}).extend({
-	createdAt: z
-		.number()
-		.int("createdAt must be an integer")
-		.positive("createdAt must be positive")
-		.optional(),
-});
+export const CreateCalculationSchema = z
+	.object({
+		manufacturer: z
+			.string()
+			.min(1, "manufacturer is required")
+			.max(255, "manufacturer must be 255 characters or less"),
+		partNumber: z
+			.string()
+			.min(1, "partNumber is required")
+			.max(255, "partNumber must be 255 characters or less"),
+		purchaseUrl: z
+			.string()
+			.url("purchaseUrl must be a valid URL")
+			.optional()
+			.or(z.literal("")),
+		notes: z
+			.string()
+			.max(5000, "notes must be 5000 characters or less")
+			.optional(),
+		units: z.enum(["mm", "in"], {
+			message: "units must be either 'mm' or 'in'",
+		}),
+		...springDimensionsSchema,
+	})
+	.strict()
+	.superRefine(validateDiameterRelationship);
 
 /**
  * Schema for updating an existing calculation.
@@ -80,20 +118,9 @@ export const UpdateCalculationSchema = z
 				message: "units must be either 'mm' or 'in'",
 			})
 			.optional(),
-		wireDiameter: z
-			.number()
-			.positive("wireDiameter must be positive")
-			.optional(),
-		outerDiameter: z
-			.number()
-			.positive("outerDiameter must be positive")
-			.optional(),
-		activeCoils: z.number().positive("activeCoils must be positive").optional(),
-		averageDiameter: z
-			.number()
-			.positive("averageDiameter must be positive")
-			.optional(),
-		springRate: z.number().positive("springRate must be positive").optional(),
+		wireDiameter: springDimensionsSchema.wireDiameter.optional(),
+		outerDiameter: springDimensionsSchema.outerDiameter.optional(),
+		activeCoils: springDimensionsSchema.activeCoils.optional(),
 	})
 	.strict();
 
