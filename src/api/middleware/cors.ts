@@ -21,19 +21,22 @@ export async function corsMiddleware(c: Context, next: Next) {
 
 	// Handle preflight requests
 	if (c.req.method === "OPTIONS") {
-		const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+		const allowedOrigin =
+			origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
 
-		return c.json(null, 204, {
+		return c.body(null, 204, {
 			"Access-Control-Allow-Origin": allowedOrigin,
 			"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-			"Access-Control-Allow-Headers": "Content-Type, Authorization, X-Session-ID",
+			"Access-Control-Allow-Headers":
+				"Content-Type, Authorization, X-Session-ID",
 			"Access-Control-Max-Age": "86400", // 24 hours
 			"Access-Control-Allow-Credentials": "true",
 		});
 	}
 
 	// For actual requests, validate origin and add CORS headers
-	const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+	const allowedOrigin =
+		origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
 
 	// Set CORS headers
 	c.header("Access-Control-Allow-Origin", allowedOrigin);

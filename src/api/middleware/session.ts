@@ -1,5 +1,4 @@
 import type { Context, Next } from "hono";
-import { v4 as uuidv4 } from "uuid";
 
 /**
  * Session context that will be available on requests after middleware runs.
@@ -19,7 +18,7 @@ export async function sessionMiddleware(c: Context, next: Next) {
 
 	if (!sessionId || sessionId.trim() === "") {
 		// Generate new session ID for requests without one
-		const newSessionId = uuidv4();
+		const newSessionId = crypto.randomUUID();
 
 		// Set in context for use in handlers
 		c.set("sessionId", newSessionId);
