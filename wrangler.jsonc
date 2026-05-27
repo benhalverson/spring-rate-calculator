@@ -9,9 +9,17 @@
 		}
 	},
 	"main": "./src/worker.ts",
-	"assets": {
-		"directory": "./dist",
-		"binding": "ASSETS",
-		"not_found_handling": "single-page-application"
+	"env": {
+		"production": {
+			"assets": {
+				"directory": "./dist",
+				"binding": "ASSETS",
+				"not_found_handling": "single-page-application"
+			}
+		},
+		"api": {
+			"name": "spring-rate-calculator-api",
+			"main": "./api/src/index.ts"
+		}
 	}
 }
