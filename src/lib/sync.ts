@@ -90,7 +90,7 @@ function resolveConflict(
 		id: clientRecord.id,
 		winner,
 		loser,
-		reason: `Last-write-wins: ${winner.updatedAt > loser.updatedAt ? "client" : "server"} version (${winner.updatedAt}) is newer than ${winner.updatedAt > loser.updatedAt ? "server" : "client"} version (${loser.updatedAt})`,
+		reason: `Last-write-wins: ${winner === clientRecord ? "client" : "server"} version (${winner.updatedAt}) is newer than ${winner === clientRecord ? "server" : "client"} version (${loser.updatedAt})`,
 	};
 }
 
@@ -108,6 +108,27 @@ export async function handleSync(
 
 		const conflicts: ConflictResolution[] = [];
 		const newSyncTimestamp = Date.now();
+
+		// Check for conflicts before applying changes
+		const recordsToApply: SpringCalcRecord[] = [];
+
+		for (const record of updated) {
+			const existingResult = await db
+				.prepare(`SELECT * FROM calculations WHERE id = ?`)
+				.bind(record.id)
+				.first<DbRecord>();
+
+			if (existingResult && existingResult.updated_at > record.updatedAt) {
+				// Conflict: server has newer version
+				const existingRecord = toClientRecord(existingResult);
+				const conflict = resolveConflict(record, existingRecord);
+				conflicts.push(conflict);
+				recordsToApply.push(conflict.winner);
+			} else {
+				// No conflict or client has newer version
+				recordsToApply.push(record);
+			}
+		}
 
 		// Use a transaction for atomicity
 		await db.batch([
@@ -138,8 +159,8 @@ export async function handleSync(
 					);
 			}),
 
-			// Process updated records with conflict resolution
-			...updated.map((record) => {
+			// Process updated records (after conflict resolution)
+			...recordsToApply.map((record) => {
 				const dbRecord = toDbRecord(record);
 				return db
 					.prepare(
@@ -165,56 +186,15 @@ export async function handleSync(
 					);
 			}),
 
-			// Process deleted records (soft delete)
+			// Process deleted records (soft delete with existence check)
 			...deleted.map((id) => {
 				return db
 					.prepare(
-						`UPDATE calculations SET deleted_at = ?, updated_at = ? WHERE id = ?`,
+						`UPDATE calculations SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
 					)
 					.bind(newSyncTimestamp, newSyncTimestamp, id);
 			}),
 		]);
-
-		// Check for conflicts by comparing updated_at timestamps
-		for (const record of updated) {
-			const existingResult = await db
-				.prepare(`SELECT * FROM calculations WHERE id = ?`)
-				.bind(record.id)
-				.first<DbRecord>();
-
-			if (existingResult && existingResult.updated_at > record.updatedAt) {
-				const existingRecord = toClientRecord(existingResult);
-				const conflict = resolveConflict(record, existingRecord);
-				conflicts.push(conflict);
-
-				// Apply the winner
-				const dbRecord = toDbRecord(conflict.winner);
-				await db
-					.prepare(
-						`UPDATE calculations SET 
-            created_at = ?, updated_at = ?, deleted_at = ?, manufacturer = ?, part_number = ?, 
-            purchase_url = ?, notes = ?, units = ?, d = ?, D = ?, n = ?, Davg = ?, k = ?
-            WHERE id = ?`,
-					)
-					.bind(
-						dbRecord.created_at,
-						dbRecord.updated_at,
-						dbRecord.deleted_at,
-						dbRecord.manufacturer,
-						dbRecord.part_number,
-						dbRecord.purchase_url,
-						dbRecord.notes,
-						dbRecord.units,
-						dbRecord.d,
-						dbRecord.D,
-						dbRecord.n,
-						dbRecord.Davg,
-						dbRecord.k,
-						dbRecord.id,
-					)
-					.run();
-			}
-		}
 
 		// Fetch server-side changes since lastSyncTimestamp
 		const serverChangesResult = await db

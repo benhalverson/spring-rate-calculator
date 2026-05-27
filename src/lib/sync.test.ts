@@ -3,6 +3,26 @@ import type { SpringCalcRecord } from "../types/spring";
 import type { SyncRequest, SyncResponse } from "../types/sync";
 import { handleSync } from "./sync";
 
+/**
+ * Server-side record stored in D1 database.
+ */
+interface DbRecord {
+	id: string;
+	created_at: number;
+	updated_at: number;
+	deleted_at: number | null;
+	manufacturer: string;
+	part_number: string;
+	purchase_url: string | null;
+	notes: string | null;
+	units: string;
+	d: number;
+	D: number;
+	n: number;
+	Davg: number;
+	k: number;
+}
+
 // Mock D1Database for testing
 class MockD1Database implements D1Database {
 	private records: Map<string, unknown> = new Map();
@@ -28,16 +48,17 @@ class MockD1Database implements D1Database {
 			},
 			first: async <T = unknown>(): Promise<T | null> => {
 				if (query.includes("SELECT * FROM calculations WHERE id = ?")) {
-					const id = bindings[0];
+					const id = bindings[0] as string;
 					return (this.records.get(id) || null) as T | null;
 				}
 				return null;
 			},
 			all: async <T = unknown>(): Promise<D1Result<T>> => {
 				if (query.includes("SELECT * FROM calculations WHERE updated_at > ?")) {
-					const lastSyncTimestamp = bindings[0];
+					const lastSyncTimestamp = bindings[0] as number;
 					const results = Array.from(this.records.values()).filter(
-						(record) => record.updated_at > lastSyncTimestamp,
+						(record): record is DbRecord & T =>
+							(record as DbRecord).updated_at > lastSyncTimestamp,
 					);
 					return {
 						results: results as T[],
@@ -85,28 +106,31 @@ class MockD1Database implements D1Database {
 						Davg,
 						k,
 					] = bindings;
-					this.records.set(id, {
-						id,
-						created_at,
-						updated_at,
-						deleted_at,
-						manufacturer,
-						part_number,
-						purchase_url,
-						notes,
-						units,
-						d,
-						D,
-						n,
-						Davg,
-						k,
-					});
+					this.records.set(
+						id as string,
+						{
+							id,
+							created_at,
+							updated_at,
+							deleted_at,
+							manufacturer,
+							part_number,
+							purchase_url,
+							notes,
+							units,
+							d,
+							D,
+							n,
+							Davg,
+							k,
+						} as DbRecord,
+					);
 				} else if (query.includes("UPDATE calculations SET deleted_at")) {
 					const [deleted_at, updated_at, id] = bindings;
-					const record = this.records.get(id);
+					const record = this.records.get(id as string) as DbRecord | undefined;
 					if (record) {
-						record.deleted_at = deleted_at;
-						record.updated_at = updated_at;
+						record.deleted_at = deleted_at as number;
+						record.updated_at = updated_at as number;
 					}
 				} else if (
 					query.includes("UPDATE calculations SET") &&
@@ -128,22 +152,25 @@ class MockD1Database implements D1Database {
 						k,
 						id,
 					] = bindings;
-					this.records.set(id, {
-						id,
-						created_at,
-						updated_at,
-						deleted_at,
-						manufacturer,
-						part_number,
-						purchase_url,
-						notes,
-						units,
-						d,
-						D,
-						n,
-						Davg,
-						k,
-					});
+					this.records.set(
+						id as string,
+						{
+							id,
+							created_at,
+							updated_at,
+							deleted_at,
+							manufacturer,
+							part_number,
+							purchase_url,
+							notes,
+							units,
+							d,
+							D,
+							n,
+							Davg,
+							k,
+						} as DbRecord,
+					);
 				}
 				return {
 					results: [],

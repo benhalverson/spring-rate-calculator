@@ -66,8 +66,9 @@ export const addCalculation = async (
 	const now = Date.now();
 	const recordWithTimestamps = {
 		...record,
-		updatedAt: now,
-		deletedAt: null,
+		// Preserve existing updatedAt for sync operations, set to now for new records
+		updatedAt: record.updatedAt || now,
+		deletedAt: record.deletedAt !== undefined ? record.deletedAt : null,
 	};
 	await db.calculations.put(recordWithTimestamps);
 };
@@ -79,10 +80,10 @@ export const addCalculation = async (
  * @returns Array of persisted records sorted by `createdAt` descending.
  */
 export const listCalculations = async (): Promise<SpringCalcRecord[]> => {
-	return db.calculations
+	const records = await db.calculations
 		.filter((record) => record.deletedAt === null)
-		.reverse()
 		.sortBy("createdAt");
+	return records.reverse();
 };
 
 /**
