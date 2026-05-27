@@ -38,6 +38,10 @@ type AppContext = Context<{ Bindings: Bindings }>;
 type CalculationPayload = z.infer<typeof CalculationRecordSchema>;
 type CalculationResponse = CalculationPayload;
 type ListCalculationsQuery = z.infer<typeof ListCalculationsQuerySchema>;
+type ValidationDetail = {
+	path: string;
+	message: string;
+};
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -53,6 +57,37 @@ const getDb = (context: AppContext): AppDb => {
 	return createDb(context.env.DB);
 };
 
+const validationErrorResponse = (
+	context: AppContext,
+	details: ValidationDetail[],
+): Response => {
+	const response: ApiErrorResponse = {
+		success: false,
+		error: {
+			message: "Validation failed",
+			code: "VALIDATION_ERROR",
+			details,
+		},
+	};
+
+	return context.json(response, 400);
+};
+
+const parseJsonRequest = async (
+	context: AppContext,
+): Promise<unknown | Response> => {
+	try {
+		return await context.req.json();
+	} catch {
+		return validationErrorResponse(context, [
+			{
+				path: "body",
+				message: "Request body must be valid JSON.",
+			},
+		]);
+	}
+};
+
 const validateRequest = <T>(
 	schema: z.ZodType<T>,
 	data: unknown,
@@ -66,16 +101,7 @@ const validateRequest = <T>(
 			message: issue.message,
 		}));
 
-		const response: ApiErrorResponse = {
-			success: false,
-			error: {
-				message: "Validation failed",
-				code: "VALIDATION_ERROR",
-				details,
-			},
-		};
-
-		return context.json(response, 400);
+		return validationErrorResponse(context, details);
 	}
 
 	return result.data;
@@ -212,7 +238,12 @@ const countActiveCalculations = async (
  * Create a new calculation.
  */
 app.post("/", async (context) => {
-	const body = await context.req.json();
+	const body = await parseJsonRequest(context);
+
+	if (body instanceof Response) {
+		return body;
+	}
+
 	const validated = validateRequest(CreateCalculationSchema, body, context);
 
 	if (validated instanceof Response) {
@@ -346,7 +377,12 @@ app.put("/:id", async (context) => {
 		return paramValidated;
 	}
 
-	const body = await context.req.json();
+	const body = await parseJsonRequest(context);
+
+	if (body instanceof Response) {
+		return body;
+	}
+
 	const bodyValidated = validateRequest(UpdateCalculationSchema, body, context);
 
 	if (bodyValidated instanceof Response) {
@@ -427,7 +463,12 @@ app.delete("/:id", async (context) => {
  * Soft-delete multiple calculations.
  */
 app.post("/bulk-delete", async (context) => {
-	const body = await context.req.json();
+	const body = await parseJsonRequest(context);
+
+	if (body instanceof Response) {
+		return body;
+	}
+
 	const validated = validateRequest(BulkDeleteSchema, body, context);
 
 	if (validated instanceof Response) {
