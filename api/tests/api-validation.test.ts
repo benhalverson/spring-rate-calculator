@@ -10,10 +10,31 @@ type ApiErrorResponse = {
 	};
 };
 
+type ApiSuccessResponse<T> = {
+	success: true;
+	data: T;
+};
+
+type CalculationResponse = {
+	id: string;
+	createdAt: number;
+	manufacturer: string;
+	partNumber: string;
+	purchaseUrl?: string;
+	notes?: string;
+	units: "mm" | "in";
+	wireDiameter: number;
+	outerDiameter: number;
+	activeCoils: number;
+	averageDiameter: number;
+	springRate: number;
+};
+
 const createEmptyD1Database = () => {
 	const statement = {
 		bind: () => statement,
 		raw: async () => [],
+		run: async () => ({ success: true }),
 	};
 	const database = {
 		prepare: () => statement,
@@ -33,6 +54,38 @@ const expectValidationError = async (response: Response) => {
 
 describe("API Validation - Invalid Inputs", () => {
 	describe("POST /api/v1/calculations - Create Calculation", () => {
+		it("should generate server-owned fields for valid create requests", async () => {
+			const response = await api.request(
+				"/api/v1/calculations",
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						manufacturer: "Test Manufacturer",
+						partNumber: "TEST-123",
+						units: "mm",
+						wireDiameter: 12.7,
+						outerDiameter: 63.5,
+						activeCoils: 7,
+					}),
+				},
+				{ DB: createEmptyD1Database() },
+			);
+
+			expect(response.status).toBe(201);
+			const data =
+				(await response.json()) as ApiSuccessResponse<CalculationResponse>;
+			expect(data.success).toBe(true);
+			expect(data.data.id).toMatch(
+				/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+			);
+			expect(data.data.createdAt).toEqual(expect.any(Number));
+			expect(data.data.averageDiameter).toBeCloseTo(50.8);
+			expect(data.data.springRate).toBeCloseTo(
+				(79_000 * 12.7 ** 4) / (8 * 7 * 50.8 ** 3),
+			);
+		});
+
 		it("should return 400 for a missing request body", async () => {
 			const response = await api.request("/api/v1/calculations", {
 				method: "POST",
@@ -60,15 +113,12 @@ describe("API Validation - Invalid Inputs", () => {
 
 		it("should return 400 for invalid units", async () => {
 			const invalidRecord = {
-				id: "123e4567-e89b-12d3-a456-426614174000",
 				manufacturer: "Test Manufacturer",
 				partNumber: "TEST-123",
 				units: "cm", // Invalid unit
 				wireDiameter: 12.7,
 				outerDiameter: 63.5,
 				activeCoils: 7,
-				averageDiameter: 50.8,
-				springRate: 18.5,
 			};
 
 			const response = await api.request("/api/v1/calculations", {
@@ -86,15 +136,12 @@ describe("API Validation - Invalid Inputs", () => {
 
 		it("should return 400 for negative numbers", async () => {
 			const invalidRecord = {
-				id: "123e4567-e89b-12d3-a456-426614174001",
 				manufacturer: "Test Manufacturer",
 				partNumber: "TEST-123",
 				units: "mm",
 				wireDiameter: -12.7, // Negative number
 				outerDiameter: 63.5,
 				activeCoils: 7,
-				averageDiameter: 50.8,
-				springRate: 18.5,
 			};
 
 			const response = await api.request("/api/v1/calculations", {
@@ -111,7 +158,6 @@ describe("API Validation - Invalid Inputs", () => {
 
 		it("should return 400 for invalid URL", async () => {
 			const invalidRecord = {
-				id: "123e4567-e89b-12d3-a456-426614174002",
 				manufacturer: "Test Manufacturer",
 				partNumber: "TEST-123",
 				purchaseUrl: "not-a-valid-url", // Invalid URL
@@ -119,8 +165,6 @@ describe("API Validation - Invalid Inputs", () => {
 				wireDiameter: 12.7,
 				outerDiameter: 63.5,
 				activeCoils: 7,
-				averageDiameter: 50.8,
-				springRate: 18.5,
 			};
 
 			const response = await api.request("/api/v1/calculations", {
@@ -135,9 +179,9 @@ describe("API Validation - Invalid Inputs", () => {
 			expect(data.error.code).toBe("VALIDATION_ERROR");
 		});
 
-		it("should return 400 for invalid UUID", async () => {
+		it("should return 400 for client-provided server-owned fields", async () => {
 			const invalidRecord = {
-				id: "not-a-uuid", // Invalid UUID
+				id: "123e4567-e89b-12d3-a456-426614174000",
 				manufacturer: "Test Manufacturer",
 				partNumber: "TEST-123",
 				units: "mm",
@@ -162,15 +206,12 @@ describe("API Validation - Invalid Inputs", () => {
 
 		it("should return 400 for missing required fields", async () => {
 			const invalidRecord = {
-				id: "123e4567-e89b-12d3-a456-426614174003",
 				// Missing manufacturer
 				partNumber: "TEST-123",
 				units: "mm",
 				wireDiameter: 12.7,
 				outerDiameter: 63.5,
 				activeCoils: 7,
-				averageDiameter: 50.8,
-				springRate: 18.5,
 			};
 
 			const response = await api.request("/api/v1/calculations", {
@@ -187,15 +228,12 @@ describe("API Validation - Invalid Inputs", () => {
 
 		it("should return consistent error response shape", async () => {
 			const invalidRecord = {
-				id: "invalid-uuid",
 				manufacturer: "",
 				partNumber: "",
 				units: "invalid",
 				wireDiameter: -1,
 				outerDiameter: -1,
 				activeCoils: -1,
-				averageDiameter: -1,
-				springRate: -1,
 			};
 
 			const response = await api.request("/api/v1/calculations", {
