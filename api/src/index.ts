@@ -9,6 +9,7 @@ import {
 	sessionMiddleware,
 } from "./middleware/index.js";
 import calculationsRoutes from "./routes/calculations.js";
+import syncRoutes from "./routes/sync.js";
 
 type Bindings = {
 	DB: D1Database;
@@ -54,6 +55,7 @@ app.use("*", sessionMiddleware);
 
 // Mount API routes
 app.route("/api/v1/calculations", calculationsRoutes);
+app.route("/api/v1/sync", syncRoutes);
 
 // Error handling middleware
 app.onError(errorMiddleware);
