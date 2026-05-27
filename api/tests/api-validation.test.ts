@@ -22,8 +22,42 @@ const createEmptyD1Database = () => {
 	return database as unknown as D1Database;
 };
 
+const expectValidationError = async (response: Response) => {
+	expect(response.status).toBe(400);
+	const data = (await response.json()) as ApiErrorResponse;
+	expect(data.success).toBe(false);
+	expect(data.error.code).toBe("VALIDATION_ERROR");
+	expect(data.error.message).toBe("Validation failed");
+	return data;
+};
+
 describe("API Validation - Invalid Inputs", () => {
 	describe("POST /api/v1/calculations - Create Calculation", () => {
+		it("should return 400 for a missing request body", async () => {
+			const response = await api.request("/api/v1/calculations", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+			});
+
+			const data = await expectValidationError(response);
+			expect(data.error.details).toEqual([
+				{
+					path: "body",
+					message: "Request body must be valid JSON.",
+				},
+			]);
+		});
+
+		it("should return 400 for malformed JSON", async () => {
+			const response = await api.request("/api/v1/calculations", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: "{",
+			});
+
+			await expectValidationError(response);
+		});
+
 		it("should return 400 for invalid units", async () => {
 			const invalidRecord = {
 				id: "123e4567-e89b-12d3-a456-426614174000",
@@ -211,6 +245,18 @@ describe("API Validation - Invalid Inputs", () => {
 	});
 
 	describe("PUT /api/v1/calculations/:id - Update Calculation", () => {
+		it("should return 400 for a missing request body", async () => {
+			const response = await api.request(
+				"/api/v1/calculations/123e4567-e89b-12d3-a456-426614174000",
+				{
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+				},
+			);
+
+			await expectValidationError(response);
+		});
+
 		it("should return 400 for invalid update data", async () => {
 			const invalidUpdate = {
 				wireDiameter: -5, // Negative number
@@ -233,6 +279,15 @@ describe("API Validation - Invalid Inputs", () => {
 	});
 
 	describe("POST /api/v1/calculations/bulk-delete - Bulk Delete", () => {
+		it("should return 400 for a missing request body", async () => {
+			const response = await api.request("/api/v1/calculations/bulk-delete", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+			});
+
+			await expectValidationError(response);
+		});
+
 		it("should return 400 for empty ids array", async () => {
 			const response = await api.request("/api/v1/calculations/bulk-delete", {
 				method: "POST",
