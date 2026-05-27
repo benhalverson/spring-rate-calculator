@@ -24,6 +24,7 @@
 				{
 					"binding": "DB",
 					"database_name": "spring-rate-calculator",
+					"database_id": "c52d38d7-aebe-47ab-8165-bb88cf093d8f",
 					"migrations_dir": "api/db/migrations"
 				}
 			]
