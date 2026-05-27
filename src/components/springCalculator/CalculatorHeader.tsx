@@ -1,5 +1,6 @@
 import { Moon, Sun } from "lucide-react";
 
+import type { SyncStatus } from "../../lib/storageAdapter";
 import type { Units } from "../../types/spring";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -16,7 +17,43 @@ interface CalculatorHeaderProps {
 	onThemeToggle: () => void;
 	hasInstallPrompt: boolean;
 	onInstall: () => Promise<void>;
+	showSyncStatus?: boolean;
+	syncStatus?: SyncStatus;
 }
+
+const getSyncLabel = (status: SyncStatus | undefined): string => {
+	if (!status) {
+		return "Sync unavailable";
+	}
+	if (status.state === "syncing") {
+		return `Syncing (${status.pending})`;
+	}
+	if (status.state === "queued") {
+		return `Pending sync (${status.pending})`;
+	}
+	if (status.state === "error") {
+		return `Sync error (${status.pending})`;
+	}
+	if (status.state === "idle") {
+		return "Synced";
+	}
+	return "Sync disabled";
+};
+
+const getSyncVariant = (
+	status: SyncStatus | undefined,
+): "success" | "warning" | "secondary" => {
+	if (!status) {
+		return "secondary";
+	}
+	if (status.state === "idle") {
+		return "success";
+	}
+	if (status.state === "syncing" || status.state === "queued") {
+		return "warning";
+	}
+	return "secondary";
+};
 
 /**
  * Renders the sticky app header with status, units toggle, and install action.
@@ -30,6 +67,8 @@ export function CalculatorHeader({
 	onThemeToggle,
 	hasInstallPrompt,
 	onInstall,
+	showSyncStatus,
+	syncStatus,
 }: CalculatorHeaderProps) {
 	return (
 		<header className="sticky top-2 z-20 rounded-xl border border-[#d6dbe7] bg-[#f8faff]/95 px-4 py-2.5 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95">
@@ -57,6 +96,15 @@ export function CalculatorHeader({
 						/>
 						{isOffline ? "Offline (working locally)" : "Online"}
 					</Badge>
+
+					{showSyncStatus ? (
+						<Badge
+							variant={getSyncVariant(syncStatus)}
+							className="border-slate-200 bg-white px-2.5 py-1 text-[0.8rem] text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+						>
+							{getSyncLabel(syncStatus)}
+						</Badge>
+					) : null}
 
 					<fieldset className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-1 py-0.5 dark:border-slate-700 dark:bg-slate-800">
 						<legend className="sr-only">Units</legend>

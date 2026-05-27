@@ -70,6 +70,15 @@ Then open the local URL printed by Vite (usually `http://localhost:5173`).
 - `pnpm test` — run test suite
 - `pnpm test --coverage` — run tests with coverage
 - `pnpm deploy` — build and deploy with Wrangler
+- `pnpm dev:api` — run the Hono API Worker locally
+- `pnpm test:api` — run API tests
+- `pnpm build:api` — type-check the API Worker
+- `pnpm db:generate` — generate D1 migrations from the Drizzle schema
+- `pnpm db:migrate:local` — apply D1 migrations to the local Wrangler D1 database
+- `pnpm db:migrate:remote` — apply D1 migrations to the remote Cloudflare D1 database
+- `pnpm db:migrations:list:local` — list local unapplied D1 migrations
+- `pnpm db:schema:local` — export the local D1 schema to `/tmp/spring-rate-calculator-d1-schema.sql`
+- `pnpm deploy:api` — build and deploy the API Worker environment
 
 ## Deployment
 
@@ -85,6 +94,38 @@ Then deploy:
 
 ```bash
 pnpm deploy
+```
+
+## API backend and D1
+
+The API Worker lives in `api/src` and uses Hono, Cloudflare D1, and Drizzle ORM.
+Drizzle schema definitions live in `api/src/db/schema.ts`; generated migration
+SQL lives in `api/db/migrations` and is applied by Wrangler D1 migrations.
+
+To prepare local D1 state:
+
+```bash
+pnpm db:generate
+pnpm db:migrate:local
+pnpm db:schema:local
+```
+
+The API environment expects a D1 binding named `DB` with database name
+`spring-rate-calculator`. For remote D1 setup, create or locate the database:
+
+```bash
+pnpm exec wrangler d1 create spring-rate-calculator
+pnpm exec wrangler d1 list
+```
+
+If Wrangler reports Cloudflare API auth errors, refresh auth with
+`pnpm exec wrangler login` or run with a valid `CLOUDFLARE_API_TOKEN`. Add the
+returned `database_id` to the `env.api.d1_databases` entry in `wrangler.jsonc`
+before remote migration/deploy verification, then run:
+
+```bash
+pnpm db:migrate:remote
+pnpm deploy:api
 ```
 
 ## CI/CD (GitHub Actions)

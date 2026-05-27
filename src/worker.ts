@@ -1,34 +1,29 @@
-import { Hono } from "hono";
-import {
-	corsMiddleware,
-	rateLimitMiddleware,
-	securityHeadersMiddleware,
-	sessionMiddleware,
-} from "./api/middleware";
+import api from "../api/src/index.js";
 
 interface WorkerEnv {
 	ASSETS: {
 		fetch: (request: Request) => Promise<Response>;
 	};
+	DB: D1Database;
 }
 
-const app = new Hono<{ Bindings: WorkerEnv }>();
+/**
+ * Cloudflare Worker entrypoint that serves API routes and built static assets.
+ */
+export default {
+	async fetch(
+		request: Request,
+		env: WorkerEnv,
+		context: ExecutionContext,
+	): Promise<Response> {
+		const url = new URL(request.url);
 
-// Apply middleware to all API routes
-// Order: security headers first, then rate limit, CORS, and session last
-app.use("/api/*", securityHeadersMiddleware);
-app.use("/api/*", rateLimitMiddleware);
-app.use("/api/*", corsMiddleware);
-app.use("/api/*", sessionMiddleware);
+		// Route API requests to Hono
+		if (url.pathname.startsWith("/api/")) {
+			return api.fetch(request, env, context);
+		}
 
-// Health check endpoint
-app.get("/api/v1/health", (c) => {
-	return c.json({ status: "ok", timestamp: new Date().toISOString() });
-});
-
-// Fallback: serve static assets for non-API routes
-app.all("*", async (c) => {
-	return c.env.ASSETS.fetch(c.req.raw);
-});
-
-export default app;
+		// Serve static assets
+		return env.ASSETS.fetch(request);
+	},
+};

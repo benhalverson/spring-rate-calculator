@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it } from "vitest";
-import { corsMiddleware } from "./cors";
-import { rateLimitMiddleware } from "./rateLimit";
-import { securityHeadersMiddleware } from "./securityHeaders";
-import { getSessionId, sessionMiddleware } from "./session";
+import { corsMiddleware } from "../src/middleware/cors";
+import { rateLimitMiddleware } from "../src/middleware/rateLimit";
+import { securityHeadersMiddleware } from "../src/middleware/securityHeaders";
+import { getSessionId, sessionMiddleware } from "../src/middleware/session";
 
 describe("CORS middleware", () => {
 	let app: Hono;

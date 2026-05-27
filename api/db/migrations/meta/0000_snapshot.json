@@ -1,0 +1,187 @@
+{
+	"version": "6",
+	"dialect": "sqlite",
+	"id": "d4db1687-aea3-4615-a626-d8a2b99ad9eb",
+	"prevId": "00000000-0000-0000-0000-000000000000",
+	"tables": {
+		"calculations": {
+			"name": "calculations",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"deleted_at": {
+					"name": "deleted_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"session_id": {
+					"name": "session_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"manufacturer": {
+					"name": "manufacturer",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"part_number": {
+					"name": "part_number",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"purchase_url": {
+					"name": "purchase_url",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"notes": {
+					"name": "notes",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"units": {
+					"name": "units",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"wire_diameter": {
+					"name": "wire_diameter",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"outer_diameter": {
+					"name": "outer_diameter",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"active_coils": {
+					"name": "active_coils",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"average_diameter": {
+					"name": "average_diameter",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"spring_rate": {
+					"name": "spring_rate",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"sync_version": {
+					"name": "sync_version",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 1
+				},
+				"device_id": {
+					"name": "device_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"idx_calculations_created_at": {
+					"name": "idx_calculations_created_at",
+					"columns": ["created_at"],
+					"isUnique": false
+				},
+				"idx_calculations_user_session": {
+					"name": "idx_calculations_user_session",
+					"columns": ["user_id", "session_id"],
+					"isUnique": false
+				},
+				"idx_calculations_manufacturer_part": {
+					"name": "idx_calculations_manufacturer_part",
+					"columns": ["manufacturer", "part_number"],
+					"isUnique": false
+				},
+				"idx_calculations_updated_at": {
+					"name": "idx_calculations_updated_at",
+					"columns": ["updated_at"],
+					"isUnique": false
+				},
+				"idx_calculations_deleted_at": {
+					"name": "idx_calculations_deleted_at",
+					"columns": ["deleted_at"],
+					"isUnique": false,
+					"where": "\"calculations\".\"deleted_at\" is not null"
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {
+				"calculations_units_check": {
+					"name": "calculations_units_check",
+					"value": "\"calculations\".\"units\" in ('mm', 'in')"
+				}
+			}
+		}
+	},
+	"views": {},
+	"enums": {},
+	"_meta": {
+		"schemas": {},
+		"tables": {},
+		"columns": {}
+	},
+	"internal": {
+		"indexes": {}
+	}
+}
