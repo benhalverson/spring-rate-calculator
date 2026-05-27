@@ -1,4 +1,4 @@
-import api from "../api/src/index";
+import api from "../api/src/index.js";
 
 interface WorkerEnv {
 	ASSETS: {
@@ -17,10 +17,13 @@ export default {
 		context: ExecutionContext,
 	): Promise<Response> {
 		const url = new URL(request.url);
+
+		// Route API requests to Hono
 		if (url.pathname.startsWith("/api/")) {
 			return api.fetch(request, env, context);
 		}
 
+		// Serve static assets
 		return env.ASSETS.fetch(request);
 	},
 };

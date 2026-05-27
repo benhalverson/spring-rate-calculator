@@ -1,6 +1,9 @@
 import { Hono } from "hono";
-import { createDb } from "./db/client";
-import { calculations } from "./db/schema";
+import { cors } from "hono/cors";
+import { createDb } from "./db/client.js";
+import { calculations } from "./db/schema.js";
+import { errorMiddleware } from "./middleware/errors.js";
+import calculationsRoutes from "./routes/calculations.js";
 
 type Bindings = {
 	DB: D1Database;
@@ -36,6 +39,15 @@ const checkDatabase = async (database?: D1Database) => {
 		};
 	}
 };
+
+// CORS middleware
+app.use("*", cors());
+
+// Mount API routes
+app.route("/api/v1/calculations", calculationsRoutes);
+
+// Error handling middleware
+app.onError(errorMiddleware);
 
 // Health check endpoint
 app.get("/api/v1/health", async (c) => {
