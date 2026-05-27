@@ -180,25 +180,19 @@ app.post("/", zValidator("json", SyncRequestSchema), async (c) => {
 	// Insert created records
 	for (const record of created) {
 		const dbRecord = toDbRecord(record);
-		await db
-			.insert(calculations)
-			.values(dbRecord)
-			.onConflictDoUpdate({
-				target: calculations.id,
-				set: dbRecord,
-			});
+		await db.insert(calculations).values(dbRecord).onConflictDoUpdate({
+			target: calculations.id,
+			set: dbRecord,
+		});
 	}
 
 	// Update records after conflict resolution
 	for (const record of recordsToApply) {
 		const dbRecord = toDbRecord(record);
-		await db
-			.insert(calculations)
-			.values(dbRecord)
-			.onConflictDoUpdate({
-				target: calculations.id,
-				set: dbRecord,
-			});
+		await db.insert(calculations).values(dbRecord).onConflictDoUpdate({
+			target: calculations.id,
+			set: dbRecord,
+		});
 	}
 
 	// Soft delete records
@@ -227,10 +221,7 @@ app.post("/", zValidator("json", SyncRequestSchema), async (c) => {
 	for (const dbRecord of serverChanges) {
 		const clientRecord = toClientRecord(dbRecord);
 
-		if (
-			dbRecord.deletedAt !== null &&
-			dbRecord.deletedAt > lastSyncTimestamp
-		) {
+		if (dbRecord.deletedAt !== null && dbRecord.deletedAt > lastSyncTimestamp) {
 			serverDeleted.push(dbRecord.id);
 		} else if (dbRecord.createdAt > lastSyncTimestamp) {
 			serverCreated.push(clientRecord);
