@@ -89,18 +89,7 @@ const backend: StorageBackend = hybridBackend ?? indexedBackend;
 export const addCalculation = async (
 	record: SpringCalcRecord,
 ): Promise<void> => {
-<<<<<<< HEAD
-	const now = Date.now();
-	const recordWithTimestamps = {
-		...record,
-		// Preserve existing updatedAt for sync operations, set to now for new records
-		updatedAt: record.updatedAt || now,
-		deletedAt: record.deletedAt !== undefined ? record.deletedAt : null,
-	};
-	await db.calculations.put(recordWithTimestamps);
-=======
 	await backend.addCalculation(record);
->>>>>>> origin/main
 };
 
 /**
@@ -110,14 +99,7 @@ export const addCalculation = async (
  * @returns Array of persisted records sorted by `createdAt` descending.
  */
 export const listCalculations = async (): Promise<SpringCalcRecord[]> => {
-<<<<<<< HEAD
-	const records = await db.calculations
-		.filter((record) => record.deletedAt === null)
-		.sortBy("createdAt");
-	return records.reverse();
-=======
 	return backend.listCalculations();
->>>>>>> origin/main
 };
 
 /**
@@ -126,15 +108,7 @@ export const listCalculations = async (): Promise<SpringCalcRecord[]> => {
  * @param id - Unique record id.
  */
 export const deleteCalculation = async (id: string): Promise<void> => {
-<<<<<<< HEAD
-	const now = Date.now();
-	await db.calculations.update(id, {
-		updatedAt: now,
-		deletedAt: now,
-	});
-=======
 	await backend.deleteCalculation(id);
->>>>>>> origin/main
 };
 
 /**
@@ -146,19 +120,7 @@ export const bulkDeleteCalculations = async (ids: string[]): Promise<void> => {
 	if (ids.length === 0) {
 		return;
 	}
-<<<<<<< HEAD
-	const now = Date.now();
-	await db.transaction("rw", db.calculations, async () => {
-		for (const id of ids) {
-			await db.calculations.update(id, {
-				updatedAt: now,
-				deletedAt: now,
-			});
-		}
-	});
-=======
 	await backend.bulkDeleteCalculations(ids);
->>>>>>> origin/main
 };
 
 /**

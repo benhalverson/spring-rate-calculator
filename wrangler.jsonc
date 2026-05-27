@@ -12,22 +12,12 @@
 	"assets": {
 		"directory": "./dist",
 		"binding": "ASSETS",
-<<<<<<< HEAD
-		"not_found_handling": "single-page-application"
-=======
 		"not_found_handling": "single-page-application",
 		"run_worker_first": ["/api/*"]
->>>>>>> origin/main
 	},
 	"d1_databases": [
 		{
 			"binding": "DB",
-<<<<<<< HEAD
-			"database_name": "spring-rate-sync-db",
-			"database_id": "spring-rate-sync-db"
-		}
-	]
-=======
 			"database_name": "spring-rate-calculator",
 			"database_id": "c52d38d7-aebe-47ab-8165-bb88cf093d8f",
 			"migrations_dir": "api/db/migrations"
@@ -63,5 +53,4 @@
 			]
 		}
 	}
->>>>>>> origin/main
 }
