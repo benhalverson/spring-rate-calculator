@@ -29,11 +29,27 @@ const SpringCalcRecordSchema = z.object({
 	k: z.number(),
 });
 
+const SyncOperationSchema = z.discriminatedUnion("type", [
+	z.object({
+		type: z.literal("add"),
+		record: SpringCalcRecordSchema,
+	}),
+	z.object({
+		type: z.literal("delete"),
+		id: z.string(),
+	}),
+	z.object({
+		type: z.literal("bulkDelete"),
+		ids: z.array(z.string()),
+	}),
+	z.object({
+		type: z.literal("clear"),
+	}),
+]);
+
 const SyncRequestSchema = z.object({
-	lastSyncTimestamp: z.number(),
-	created: z.array(SpringCalcRecordSchema),
-	updated: z.array(SpringCalcRecordSchema),
-	deleted: z.array(z.string()),
+	changes: z.array(SyncOperationSchema),
+	lastSyncTimestamp: z.number().nullable(),
 });
 
 type SpringCalcRecord = z.infer<typeof SpringCalcRecordSchema>;
@@ -148,11 +164,45 @@ function resolveConflict(
  */
 app.post("/", zValidator("json", SyncRequestSchema), async (c) => {
 	const syncRequest = c.req.valid("json");
-	const { lastSyncTimestamp, created, updated, deleted } = syncRequest;
+	const { changes, lastSyncTimestamp } = syncRequest;
 	const db = createDb(c.env.DB);
 
 	const conflicts: ConflictResolution[] = [];
 	const newSyncTimestamp = Date.now();
+
+	// Categorize changes by operation type
+	const created: SpringCalcRecord[] = [];
+	const updated: SpringCalcRecord[] = [];
+	const deleted: string[] = [];
+
+	for (const change of changes) {
+		switch (change.type) {
+			case "add":
+				// Determine if this is a new record or an update
+				const existing = await db
+					.select()
+					.from(calculations)
+					.where(eq(calculations.id, change.record.id))
+					.get();
+
+				if (existing) {
+					updated.push(change.record);
+				} else {
+					created.push(change.record);
+				}
+				break;
+			case "delete":
+				deleted.push(change.id);
+				break;
+			case "bulkDelete":
+				deleted.push(...change.ids);
+				break;
+			case "clear":
+				// Clear all records for this session/user
+				// Note: This would need user/session context which isn't implemented yet
+				break;
+		}
+	}
 
 	// Check for conflicts before applying changes
 	const recordsToApply: SpringCalcRecord[] = [];
@@ -164,19 +214,23 @@ app.post("/", zValidator("json", SyncRequestSchema), async (c) => {
 			.where(eq(calculations.id, record.id))
 			.get();
 
-		if (existing && existing.updatedAt !== record.updatedAt) {
+		if (
+			existing &&
+			existing.deletedAt === null &&
+			existing.updatedAt !== record.updatedAt
+		) {
 			// Conflict detected - resolve using last-write-wins
 			const existingRecord = toClientRecord(existing);
 			const conflict = resolveConflict(record, existingRecord);
 			conflicts.push(conflict);
 			recordsToApply.push(conflict.winner);
 		} else {
-			// No conflict or same timestamp
+			// No conflict or same timestamp, or existing record is already deleted
 			recordsToApply.push(record);
 		}
 	}
 
-	// Apply all changes (sequentially if no batch support or operations are present)
+	// Apply all changes
 	// Insert created records
 	for (const record of created) {
 		const dbRecord = toDbRecord(record);
@@ -210,7 +264,7 @@ app.post("/", zValidator("json", SyncRequestSchema), async (c) => {
 	const serverChanges = await db
 		.select()
 		.from(calculations)
-		.where(gt(calculations.updatedAt, lastSyncTimestamp))
+		.where(gt(calculations.updatedAt, lastSyncTimestamp ?? 0))
 		.all();
 
 	// Separate server changes into created, updated, deleted
@@ -221,9 +275,12 @@ app.post("/", zValidator("json", SyncRequestSchema), async (c) => {
 	for (const dbRecord of serverChanges) {
 		const clientRecord = toClientRecord(dbRecord);
 
-		if (dbRecord.deletedAt !== null && dbRecord.deletedAt > lastSyncTimestamp) {
+		if (
+			dbRecord.deletedAt !== null &&
+			dbRecord.deletedAt > (lastSyncTimestamp ?? 0)
+		) {
 			serverDeleted.push(dbRecord.id);
-		} else if (dbRecord.createdAt > lastSyncTimestamp) {
+		} else if (dbRecord.createdAt > (lastSyncTimestamp ?? 0)) {
 			serverCreated.push(clientRecord);
 		} else {
 			serverUpdated.push(clientRecord);
