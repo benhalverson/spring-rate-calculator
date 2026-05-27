@@ -1,8 +1,13 @@
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 import { createDb } from "./db/client.js";
 import { calculations } from "./db/schema.js";
 import { errorMiddleware } from "./middleware/errors.js";
+import {
+	corsMiddleware,
+	rateLimitMiddleware,
+	securityHeadersMiddleware,
+	sessionMiddleware,
+} from "./middleware/index.js";
 import calculationsRoutes from "./routes/calculations.js";
 
 type Bindings = {
@@ -40,8 +45,12 @@ const checkDatabase = async (database?: D1Database) => {
 	}
 };
 
-// CORS middleware
-app.use("*", cors());
+// Security middleware chain
+// Order: security headers first, then rate limit, CORS, and session last
+app.use("*", securityHeadersMiddleware);
+app.use("*", rateLimitMiddleware);
+app.use("*", corsMiddleware);
+app.use("*", sessionMiddleware);
 
 // Mount API routes
 app.route("/api/v1/calculations", calculationsRoutes);
