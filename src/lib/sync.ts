@@ -86,11 +86,14 @@ function resolveConflict(
 			? serverRecord
 			: clientRecord;
 
+	const winnerLabel = winner === clientRecord ? "client" : "server";
+	const loserLabel = winner === clientRecord ? "server" : "client";
+
 	return {
 		id: clientRecord.id,
 		winner,
 		loser,
-		reason: `Last-write-wins: ${winner === clientRecord ? "client" : "server"} version (${winner.updatedAt}) is newer than ${winner === clientRecord ? "server" : "client"} version (${loser.updatedAt})`,
+		reason: `Last-write-wins: ${winnerLabel} version (${winner.updatedAt}) is newer than ${loserLabel} version (${loser.updatedAt})`,
 	};
 }
 
@@ -118,14 +121,14 @@ export async function handleSync(
 				.bind(record.id)
 				.first<DbRecord>();
 
-			if (existingResult && existingResult.updated_at > record.updatedAt) {
-				// Conflict: server has newer version
+			if (existingResult && existingResult.updated_at !== record.updatedAt) {
+				// Conflict: timestamps differ, let resolveConflict decide the winner
 				const existingRecord = toClientRecord(existingResult);
 				const conflict = resolveConflict(record, existingRecord);
 				conflicts.push(conflict);
 				recordsToApply.push(conflict.winner);
 			} else {
-				// No conflict or client has newer version
+				// No conflict or same timestamp
 				recordsToApply.push(record);
 			}
 		}
