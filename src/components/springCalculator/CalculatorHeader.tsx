@@ -1,6 +1,7 @@
 import { Moon, Sun } from "lucide-react";
 
 import type { Units } from "../../types/spring";
+import { SyncStatusPill } from "../SyncStatus";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 
@@ -57,6 +58,8 @@ export function CalculatorHeader({
 						/>
 						{isOffline ? "Offline (working locally)" : "Online"}
 					</Badge>
+
+					<SyncStatusPill />
 
 					<fieldset className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-1 py-0.5 dark:border-slate-700 dark:bg-slate-800">
 						<legend className="sr-only">Units</legend>

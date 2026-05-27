@@ -1,39 +1,18 @@
-import Dexie, { type EntityTable } from "dexie";
-
+import type { CloudSyncListener, CloudSyncStatus } from "../types/cloudSync";
 import type { SpringCalcRecord } from "../types/spring";
+import { isCloudSyncEnabled } from "./env";
+import { HybridBackend } from "./storage/hybridBackend";
+import { IndexedDBBackend } from "./storage/indexedDbBackend";
+import type { StorageBackend } from "./storage/StorageBackend";
 
-/**
- * Typed Dexie database for spring calculation persistence.
- */
-class SpringRateDatabase extends Dexie {
-	/** IndexedDB table that stores spring calculation records. */
-	calculations!: EntityTable<SpringCalcRecord, "id">;
-
-	constructor() {
-		super("spring-rate-db");
-		this.version(1).stores({
-			calculations: "id, createdAt",
-		});
-		this.version(2)
-			.stores({
-				calculations:
-					"id, createdAt, manufacturer, partNumber, [manufacturer+partNumber]",
-			})
-			.upgrade((transaction) => {
-				return transaction
-					.table("calculations")
-					.toCollection()
-					.modify((record: Partial<SpringCalcRecord>) => {
-						record.manufacturer =
-							record.manufacturer?.trim() || "Unknown manufacturer";
-						record.partNumber =
-							record.partNumber?.trim() || "Unknown part number";
-					});
-			});
+const createBackend = (): StorageBackend => {
+	if (isCloudSyncEnabled()) {
+		return new HybridBackend();
 	}
-}
+	return new IndexedDBBackend();
+};
 
-const db = new SpringRateDatabase();
+const backend = createBackend();
 
 /**
  * Persists a spring calculation record.
@@ -43,7 +22,7 @@ const db = new SpringRateDatabase();
 export const addCalculation = async (
 	record: SpringCalcRecord,
 ): Promise<void> => {
-	await db.calculations.put(record);
+	await backend.addCalculation(record);
 };
 
 /**
@@ -52,7 +31,7 @@ export const addCalculation = async (
  * @returns Array of persisted records sorted by `createdAt` descending.
  */
 export const listCalculations = async (): Promise<SpringCalcRecord[]> => {
-	return db.calculations.orderBy("createdAt").reverse().toArray();
+	return backend.listCalculations();
 };
 
 /**
@@ -61,7 +40,7 @@ export const listCalculations = async (): Promise<SpringCalcRecord[]> => {
  * @param id - Unique record id.
  */
 export const deleteCalculation = async (id: string): Promise<void> => {
-	await db.calculations.delete(id);
+	await backend.deleteCalculation(id);
 };
 
 /**
@@ -70,15 +49,28 @@ export const deleteCalculation = async (id: string): Promise<void> => {
  * @param ids - Array of unique record ids to delete.
  */
 export const bulkDeleteCalculations = async (ids: string[]): Promise<void> => {
-	if (ids.length === 0) {
-		return;
-	}
-	await db.calculations.bulkDelete(ids);
+	await backend.bulkDeleteCalculations(ids);
 };
 
 /**
  * Deletes all saved calculations.
  */
 export const clearCalculations = async (): Promise<void> => {
-	await db.calculations.clear();
+	await backend.clearCalculations();
+};
+
+export const getCloudSyncStatus = (): CloudSyncStatus => {
+	return (
+		backend.getCloudSyncStatus?.() ?? { state: "disabled", queuedCount: 0 }
+	);
+};
+
+export const subscribeCloudSyncStatus = (
+	listener: CloudSyncListener,
+): (() => void) => {
+	return backend.subscribeCloudSyncStatus?.(listener) ?? (() => {});
+};
+
+export const flushCloudSyncNow = async (): Promise<void> => {
+	await backend.flushCloudSyncNow?.();
 };
