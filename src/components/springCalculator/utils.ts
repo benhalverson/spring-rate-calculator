@@ -9,9 +9,49 @@ export interface BeforeInstallPromptEvent extends Event {
 }
 
 /**
- * Sorting state for the saved calculations table `k` column.
+ * Sort options for the saved calculations table.
  */
-export type KSortDirection = "none" | "asc" | "desc";
+export type SavedSortOption =
+	| "created-desc"
+	| "created-asc"
+	| "k-asc"
+	| "k-desc";
+
+/**
+ * Filters used by the saved calculations table.
+ */
+export interface SavedFilters {
+	query: string;
+	units: "all" | Units;
+	dateFrom: string;
+	dateTo: string;
+	kMin: string;
+	kMax: string;
+	dMin: string;
+	dMax: string;
+	DMin: string;
+	DMax: string;
+	nMin: string;
+	nMax: string;
+}
+
+/**
+ * Default filter values for saved calculations.
+ */
+export const EMPTY_SAVED_FILTERS: SavedFilters = {
+	query: "",
+	units: "all",
+	dateFrom: "",
+	dateTo: "",
+	kMin: "",
+	kMax: "",
+	dMin: "",
+	dMax: "",
+	DMin: "",
+	DMax: "",
+	nMin: "",
+	nMax: "",
+};
 
 /**
  * Raw form input values managed as strings for input UX.
@@ -88,29 +128,32 @@ export const formatShearModulus = (value: number): string => {
 };
 
 /**
- * Cycles the `k` sort direction through none -> asc -> desc -> none.
+ * Returns a user-facing label for the current saved-results sort mode.
  */
-export const toggleKSortDirection = (
-	current: KSortDirection,
-): KSortDirection => {
-	if (current === "none") {
-		return "asc";
+export const getSortLabel = (sort: SavedSortOption): string => {
+	if (sort === "created-desc") {
+		return "Date: newest";
 	}
-	if (current === "asc") {
-		return "desc";
+	if (sort === "created-asc") {
+		return "Date: oldest";
 	}
-	return "none";
+	if (sort === "k-asc") {
+		return "k: low → high";
+	}
+	return "k: high → low";
 };
 
 /**
- * Produces a user-facing label for the current `k` sort direction.
+ * Safely parses optional numeric filter bounds.
  */
-export const getKSortLabel = (direction: KSortDirection): string => {
-	if (direction === "none") {
-		return "Sort k";
+export const parseOptionalNumber = (value: string): number | undefined => {
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return undefined;
 	}
-	if (direction === "asc") {
-		return "Sort k ↑";
+	const parsed = Number(trimmed);
+	if (!Number.isFinite(parsed)) {
+		return undefined;
 	}
-	return "Sort k ↓";
+	return parsed;
 };

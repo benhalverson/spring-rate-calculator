@@ -1,11 +1,28 @@
-import { registerSW } from "virtual:pwa-register";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
 
-registerSW({
-	immediate: true,
+const removeLegacyServiceWorkers = async (): Promise<void> => {
+	if (!("serviceWorker" in navigator)) {
+		return;
+	}
+
+	const registrations = await navigator.serviceWorker.getRegistrations();
+	await Promise.all(
+		registrations.map((registration) => registration.unregister()),
+	);
+
+	if ("caches" in window) {
+		const cacheNames = await window.caches.keys();
+		await Promise.all(
+			cacheNames.map((cacheName) => window.caches.delete(cacheName)),
+		);
+	}
+};
+
+window.addEventListener("load", () => {
+	void removeLegacyServiceWorkers();
 });
 
 const rootElement = document.getElementById("root");

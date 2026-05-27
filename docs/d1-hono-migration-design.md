@@ -116,18 +116,14 @@ Authorization: Bearer <token> (optional for anonymous)
 
 Request Body:
 {
-  "id": "uuid-v4",
-  "createdAt": 1739665672000,
   "manufacturer": "Eibach",
   "partNumber": "ERS 8.00.225",
   "purchaseUrl": "https://example.com/spring",
   "notes": "Front left spring",
   "units": "mm",
-  "d": 12.7,
-  "D": 63.5,
-  "n": 7,
-  "Davg": 50.8,
-  "k": 18.5
+  "wireDiameter": 12.7,
+  "outerDiameter": 63.5,
+  "activeCoils": 7
 }
 
 Response: 201 Created
@@ -139,7 +135,6 @@ Response: 201 Created
 Errors:
 400 Bad Request - Invalid input
 401 Unauthorized - Auth required (future)
-409 Conflict - ID already exists (rare)
 ```
 
 #### 2. List Calculations
@@ -153,7 +148,7 @@ GET /api/v1/calculations?
   toDate=<timestamp>&
   limit=<number>&
   offset=<number>&
-  orderBy=<createdAt|k>&
+  orderBy=<createdAt|springRate>&
   orderDirection=<asc|desc>
 
 Authorization: Bearer <token> (optional)
@@ -218,8 +213,8 @@ Response: 200 OK
 
 Notes:
 - Partial updates allowed
-- Cannot update id, createdAt, calculated fields (Davg, k)
-- Updates must recalculate Davg/k if d/D/n change
+- Cannot update id, createdAt, averageDiameter, or springRate
+- Updates recalculate averageDiameter and springRate if dimensions or units change
 ```
 
 #### 5. Delete Calculation

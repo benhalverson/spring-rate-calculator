@@ -1,6 +1,13 @@
 import Dexie, { type EntityTable } from "dexie";
 
 import type { SpringCalcRecord } from "../types/spring";
+import {
+	createDisabledSyncStatus,
+	HybridBackend,
+	IndexedDBBackend,
+	type StorageBackend,
+	type SyncStatus,
+} from "./storageAdapter";
 
 /**
  * Typed Dexie database for spring calculation persistence.
@@ -55,6 +62,25 @@ class SpringRateDatabase extends Dexie {
 
 const db = new SpringRateDatabase();
 
+const indexedBackend = new IndexedDBBackend({
+	add: async (record) => {
+		await db.calculations.put(record);
+	},
+	list: async () => db.calculations.orderBy("createdAt").reverse().toArray(),
+	deleteOne: async (id) => db.calculations.delete(id),
+	deleteMany: async (ids) => db.calculations.bulkDelete(ids),
+	clear: async () => db.calculations.clear(),
+});
+
+export const isCloudSyncEnabled =
+	import.meta.env.VITE_ENABLE_CLOUD_SYNC === "true";
+
+const hybridBackend = isCloudSyncEnabled
+	? new HybridBackend(indexedBackend)
+	: null;
+
+const backend: StorageBackend = hybridBackend ?? indexedBackend;
+
 /**
  * Persists a spring calculation record.
  *
@@ -63,6 +89,7 @@ const db = new SpringRateDatabase();
 export const addCalculation = async (
 	record: SpringCalcRecord,
 ): Promise<void> => {
+<<<<<<< HEAD
 	const now = Date.now();
 	const recordWithTimestamps = {
 		...record,
@@ -71,6 +98,9 @@ export const addCalculation = async (
 		deletedAt: record.deletedAt !== undefined ? record.deletedAt : null,
 	};
 	await db.calculations.put(recordWithTimestamps);
+=======
+	await backend.addCalculation(record);
+>>>>>>> origin/main
 };
 
 /**
@@ -80,10 +110,14 @@ export const addCalculation = async (
  * @returns Array of persisted records sorted by `createdAt` descending.
  */
 export const listCalculations = async (): Promise<SpringCalcRecord[]> => {
+<<<<<<< HEAD
 	const records = await db.calculations
 		.filter((record) => record.deletedAt === null)
 		.sortBy("createdAt");
 	return records.reverse();
+=======
+	return backend.listCalculations();
+>>>>>>> origin/main
 };
 
 /**
@@ -92,11 +126,15 @@ export const listCalculations = async (): Promise<SpringCalcRecord[]> => {
  * @param id - Unique record id.
  */
 export const deleteCalculation = async (id: string): Promise<void> => {
+<<<<<<< HEAD
 	const now = Date.now();
 	await db.calculations.update(id, {
 		updatedAt: now,
 		deletedAt: now,
 	});
+=======
+	await backend.deleteCalculation(id);
+>>>>>>> origin/main
 };
 
 /**
@@ -108,6 +146,7 @@ export const bulkDeleteCalculations = async (ids: string[]): Promise<void> => {
 	if (ids.length === 0) {
 		return;
 	}
+<<<<<<< HEAD
 	const now = Date.now();
 	await db.transaction("rw", db.calculations, async () => {
 		for (const id of ids) {
@@ -117,11 +156,45 @@ export const bulkDeleteCalculations = async (ids: string[]): Promise<void> => {
 			});
 		}
 	});
+=======
+	await backend.bulkDeleteCalculations(ids);
+>>>>>>> origin/main
 };
 
 /**
  * Deletes all saved calculations.
  */
 export const clearCalculations = async (): Promise<void> => {
-	await db.calculations.clear();
+	await backend.clearCalculations();
+};
+
+/**
+ * Reads current cloud sync status for the optional hybrid backend.
+ */
+export const getSyncStatus = (): SyncStatus => {
+	return hybridBackend?.getSyncStatus() ?? createDisabledSyncStatus();
+};
+
+/**
+ * Subscribes to cloud sync status updates in hybrid mode.
+ */
+export const subscribeSyncStatus = (
+	listener: (status: SyncStatus) => void,
+): (() => void) => {
+	if (!hybridBackend) {
+		listener(createDisabledSyncStatus());
+		return () => {};
+	}
+
+	return hybridBackend.subscribeSyncStatus(listener);
+};
+
+/**
+ * Requests a background sync attempt when cloud sync mode is enabled.
+ */
+export const triggerBackgroundSync = async (): Promise<void> => {
+	if (!hybridBackend) {
+		return;
+	}
+	await hybridBackend.triggerBackgroundSync();
 };
