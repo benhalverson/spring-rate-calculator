@@ -198,9 +198,14 @@ app.post("/", zValidator("json", SyncRequestSchema), async (c) => {
 				deleted.push(...change.ids);
 				break;
 			case "clear":
-				// Clear all records for this session/user
-				// Note: This would need user/session context which isn't implemented yet
-				break;
+				// Clear operation not supported - requires user/session context
+				return c.json(
+					{
+						error:
+							"Clear operation not yet supported. Please delete records individually.",
+					},
+					400,
+				);
 		}
 	}
 
