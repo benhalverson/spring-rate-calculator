@@ -29,7 +29,7 @@
 		"dexie": "^4.3.0",
 		"drizzle-orm": "^0.45.2",
 		"framer-motion": "^12.34.0",
-		"hono": "^4.8.4",
+		"hono": "^4.12.18",
 		"lucide-react": "^0.564.0",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",
