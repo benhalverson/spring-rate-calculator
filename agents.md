@@ -122,29 +122,7 @@ Exports:
 - `deleteCalculation(id: string): Promise<void>`
 - `clearCalculations(): Promise<void>`
 
-### 3) PWA setup (offline-first)
-Add `vite-plugin-pwa` and configure in `vite.config.ts`:
-
-Requirements:
-- `registerType: "autoUpdate"`
-- Workbox precache for app shell (default precache)
-- SPA fallback to `/index.html`
-- Manifest:
-  - `name`, `short_name`
-  - `start_url: "/"`
-  - `display: "standalone"`
-  - `theme_color`, `background_color`
-  - icons: at least 192x192 and 512x512
-
-Assets:
-- `public/manifest.webmanifest` (or plugin-generated)
-- `public/icons/icon-192.png`
-- `public/icons/icon-512.png`
-
-Offline acceptance:
-- After first load, subsequent loads offline must render the calculator and history.
-
-### 4) Main Calculator UI
+### 3) Main Calculator UI
 Create: `src/components/SpringRateCalculator.tsx`
 
 State (strings for better input UX):
@@ -177,7 +155,7 @@ Actions:
 - Reset:
   - clear inputs + errors/warnings
 
-### 5) Spring Visualization + Animations (Required)
+### 4) Spring Visualization + Animations (Required)
 Goal: show a spring animation that looks/feels different for different k values.
 - Low k → bouncy + more deflection
 - High k → stiff + less deflection
@@ -226,7 +204,7 @@ Performance rules:
 Placement:
 - SpringViz card sits under/next to calculator results (responsive).
 
-### 6) UI Design Requirements (Layout)
+### 5) UI Design Requirements (Layout)
 Desktop:
 - Two-column top: Calculator (left) + Spring Visualizer (right)
 - Full-width bottom: Saved list
