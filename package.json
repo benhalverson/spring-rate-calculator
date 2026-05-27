@@ -8,7 +8,7 @@
 		"dev:api": "wrangler dev --config wrangler.jsonc --env api",
 		"build": "tsc -b && vite build",
 		"build:api": "tsc -p api/tsconfig.json",
-		"deploy": "pnpm build && wrangler deploy --config wrangler.jsonc --env production",
+		"deploy": "pnpm build && wrangler deploy --config wrangler.jsonc --env=\"\"",
 		"deploy:api": "pnpm build:api && wrangler deploy --config wrangler.jsonc --env api",
 		"db:generate": "drizzle-kit generate --config drizzle.config.ts",
 		"db:migrate:local": "wrangler d1 migrations apply DB --config wrangler.jsonc --env api --local",
