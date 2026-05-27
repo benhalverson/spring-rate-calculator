@@ -177,7 +177,7 @@ app.post("/", zValidator("json", SyncRequestSchema), async (c) => {
 
 	for (const change of changes) {
 		switch (change.type) {
-			case "add":
+			case "add": {
 				// Determine if this is a new record or an update
 				const existing = await db
 					.select()
@@ -191,6 +191,7 @@ app.post("/", zValidator("json", SyncRequestSchema), async (c) => {
 					created.push(change.record);
 				}
 				break;
+			}
 			case "delete":
 				deleted.push(change.id);
 				break;
