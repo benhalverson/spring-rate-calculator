@@ -19,7 +19,14 @@
 		},
 		"api": {
 			"name": "spring-rate-calculator-api",
-			"main": "./api/src/index.ts"
+			"main": "./api/src/index.ts",
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "spring-rate-calculator",
+					"migrations_dir": "api/db/migrations"
+				}
+			]
 		}
 	}
 }

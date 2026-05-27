@@ -1,29 +1,66 @@
 import { Hono } from "hono";
+import { createDb } from "./db/client";
+import { calculations } from "./db/schema";
 
-// Define types for Cloudflare Worker environment
-// biome-ignore lint/complexity/noBannedTypes: Empty object type is intentional for future bindings
 type Bindings = {
-	// Add D1 database binding here in the future:
-	// DB: D1Database;
+	DB: D1Database;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
+const serviceVersion = "1.0.0";
+
+const getErrorMessage = (error: unknown): string => {
+	return error instanceof Error ? error.message : "Unknown database error";
+};
+
+const checkDatabase = async (database?: D1Database) => {
+	if (!database) {
+		return {
+			status: "error" as const,
+			message: "D1 binding DB is not configured.",
+		};
+	}
+
+	try {
+		const db = createDb(database);
+		await db.select({ id: calculations.id }).from(calculations).limit(1).all();
+
+		return {
+			status: "ok" as const,
+			table: "calculations",
+		};
+	} catch (error) {
+		return {
+			status: "error" as const,
+			message: getErrorMessage(error),
+		};
+	}
+};
 
 // Health check endpoint
-app.get("/api/v1/health", (c) => {
-	return c.json({
-		status: "ok",
-		timestamp: Date.now(),
-		service: "spring-rate-calculator-api",
-		version: "1.0.0",
-	});
+app.get("/api/v1/health", async (c) => {
+	const database = await checkDatabase(c.env.DB);
+	const isHealthy = database.status === "ok";
+
+	return c.json(
+		{
+			status: isHealthy ? "ok" : "error",
+			timestamp: Date.now(),
+			service: "spring-rate-calculator-api",
+			version: serviceVersion,
+			checks: {
+				database,
+			},
+		},
+		isHealthy ? 200 : 503,
+	);
 });
 
 // Root endpoint
 app.get("/", (c) => {
 	return c.json({
 		message: "Spring Rate Calculator API",
-		version: "1.0.0",
+		version: serviceVersion,
 		endpoints: {
 			health: "/api/v1/health",
 		},
