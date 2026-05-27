@@ -261,9 +261,12 @@ export function SpringRateCalculator() {
 			return;
 		}
 
+		const now = Date.now();
 		const record: SpringCalcRecord = {
 			id: crypto.randomUUID(),
-			createdAt: Date.now(),
+			createdAt: now,
+			updatedAt: now,
+			deletedAt: null,
 			manufacturer: normalizedManufacturer,
 			partNumber: normalizedPartNumber,
 			purchaseUrl: normalizedPurchaseUrl || undefined,

@@ -30,6 +30,26 @@ class SpringRateDatabase extends Dexie {
 							record.partNumber?.trim() || "Unknown part number";
 					});
 			});
+		this.version(3)
+			.stores({
+				calculations:
+					"id, createdAt, updatedAt, deletedAt, manufacturer, partNumber, [manufacturer+partNumber]",
+			})
+			.upgrade((transaction) => {
+				return transaction
+					.table("calculations")
+					.toCollection()
+					.modify((record: Partial<SpringCalcRecord>) => {
+						// Set updatedAt to createdAt for existing records
+						if (record.createdAt && !record.updatedAt) {
+							record.updatedAt = record.createdAt;
+						}
+						// Set deletedAt to null for existing records
+						if (record.deletedAt === undefined) {
+							record.deletedAt = null;
+						}
+					});
+			});
 	}
 }
 
@@ -43,29 +63,43 @@ const db = new SpringRateDatabase();
 export const addCalculation = async (
 	record: SpringCalcRecord,
 ): Promise<void> => {
-	await db.calculations.put(record);
+	const now = Date.now();
+	const recordWithTimestamps = {
+		...record,
+		updatedAt: now,
+		deletedAt: null,
+	};
+	await db.calculations.put(recordWithTimestamps);
 };
 
 /**
  * Lists all saved calculations ordered from newest to oldest.
+ * Excludes soft-deleted records.
  *
  * @returns Array of persisted records sorted by `createdAt` descending.
  */
 export const listCalculations = async (): Promise<SpringCalcRecord[]> => {
-	return db.calculations.orderBy("createdAt").reverse().toArray();
+	return db.calculations
+		.filter((record) => record.deletedAt === null)
+		.reverse()
+		.sortBy("createdAt");
 };
 
 /**
- * Deletes one saved calculation by id.
+ * Deletes one saved calculation by id (soft delete).
  *
  * @param id - Unique record id.
  */
 export const deleteCalculation = async (id: string): Promise<void> => {
-	await db.calculations.delete(id);
+	const now = Date.now();
+	await db.calculations.update(id, {
+		updatedAt: now,
+		deletedAt: now,
+	});
 };
 
 /**
- * Deletes multiple saved calculations by their ids.
+ * Deletes multiple saved calculations by their ids (soft delete).
  *
  * @param ids - Array of unique record ids to delete.
  */
@@ -73,7 +107,15 @@ export const bulkDeleteCalculations = async (ids: string[]): Promise<void> => {
 	if (ids.length === 0) {
 		return;
 	}
-	await db.calculations.bulkDelete(ids);
+	const now = Date.now();
+	await db.transaction("rw", db.calculations, async () => {
+		for (const id of ids) {
+			await db.calculations.update(id, {
+				updatedAt: now,
+				deletedAt: now,
+			});
+		}
+	});
 };
 
 /**

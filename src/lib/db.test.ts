@@ -14,6 +14,8 @@ const baseRecord = (
 ): SpringCalcRecord => ({
 	id: "id-1",
 	createdAt: 1_700_000_000_000,
+	updatedAt: 1_700_000_000_000,
+	deletedAt: null,
 	manufacturer: "Team Associated",
 	partNumber: "ASC91322",
 	purchaseUrl: "https://example.com/spring",
