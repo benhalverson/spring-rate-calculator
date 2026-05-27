@@ -1,8 +1,8 @@
 import type { SpringCalcRecord } from "../types/spring";
 import type {
+	ConflictResolution,
 	SyncRequest,
 	SyncResponse,
-	ConflictResolution,
 } from "../types/sync";
 
 /**
@@ -114,58 +114,64 @@ export async function handleSync(
 			// Process created records
 			...created.map((record) => {
 				const dbRecord = toDbRecord(record);
-				return db.prepare(
-					`INSERT OR REPLACE INTO calculations 
+				return db
+					.prepare(
+						`INSERT OR REPLACE INTO calculations 
           (id, created_at, updated_at, deleted_at, manufacturer, part_number, purchase_url, notes, units, d, D, n, Davg, k)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				).bind(
-					dbRecord.id,
-					dbRecord.created_at,
-					dbRecord.updated_at,
-					dbRecord.deleted_at,
-					dbRecord.manufacturer,
-					dbRecord.part_number,
-					dbRecord.purchase_url,
-					dbRecord.notes,
-					dbRecord.units,
-					dbRecord.d,
-					dbRecord.D,
-					dbRecord.n,
-					dbRecord.Davg,
-					dbRecord.k,
-				);
+					)
+					.bind(
+						dbRecord.id,
+						dbRecord.created_at,
+						dbRecord.updated_at,
+						dbRecord.deleted_at,
+						dbRecord.manufacturer,
+						dbRecord.part_number,
+						dbRecord.purchase_url,
+						dbRecord.notes,
+						dbRecord.units,
+						dbRecord.d,
+						dbRecord.D,
+						dbRecord.n,
+						dbRecord.Davg,
+						dbRecord.k,
+					);
 			}),
 
 			// Process updated records with conflict resolution
 			...updated.map((record) => {
 				const dbRecord = toDbRecord(record);
-				return db.prepare(
-					`INSERT OR REPLACE INTO calculations 
+				return db
+					.prepare(
+						`INSERT OR REPLACE INTO calculations 
           (id, created_at, updated_at, deleted_at, manufacturer, part_number, purchase_url, notes, units, d, D, n, Davg, k)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				).bind(
-					dbRecord.id,
-					dbRecord.created_at,
-					dbRecord.updated_at,
-					dbRecord.deleted_at,
-					dbRecord.manufacturer,
-					dbRecord.part_number,
-					dbRecord.purchase_url,
-					dbRecord.notes,
-					dbRecord.units,
-					dbRecord.d,
-					dbRecord.D,
-					dbRecord.n,
-					dbRecord.Davg,
-					dbRecord.k,
-				);
+					)
+					.bind(
+						dbRecord.id,
+						dbRecord.created_at,
+						dbRecord.updated_at,
+						dbRecord.deleted_at,
+						dbRecord.manufacturer,
+						dbRecord.part_number,
+						dbRecord.purchase_url,
+						dbRecord.notes,
+						dbRecord.units,
+						dbRecord.d,
+						dbRecord.D,
+						dbRecord.n,
+						dbRecord.Davg,
+						dbRecord.k,
+					);
 			}),
 
 			// Process deleted records (soft delete)
 			...deleted.map((id) => {
-				return db.prepare(
-					`UPDATE calculations SET deleted_at = ?, updated_at = ? WHERE id = ?`,
-				).bind(newSyncTimestamp, newSyncTimestamp, id);
+				return db
+					.prepare(
+						`UPDATE calculations SET deleted_at = ?, updated_at = ? WHERE id = ?`,
+					)
+					.bind(newSyncTimestamp, newSyncTimestamp, id);
 			}),
 		]);
 
@@ -228,7 +234,10 @@ export async function handleSync(
 		for (const dbRecord of serverChanges) {
 			const clientRecord = toClientRecord(dbRecord);
 
-			if (dbRecord.deleted_at !== null && dbRecord.deleted_at > lastSyncTimestamp) {
+			if (
+				dbRecord.deleted_at !== null &&
+				dbRecord.deleted_at > lastSyncTimestamp
+			) {
 				serverDeleted.push(dbRecord.id);
 			} else if (dbRecord.created_at > lastSyncTimestamp) {
 				serverCreated.push(clientRecord);

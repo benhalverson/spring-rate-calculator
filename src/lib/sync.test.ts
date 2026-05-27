@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { handleSync } from "./sync";
-import type { SyncRequest, SyncResponse } from "../types/sync";
 import type { SpringCalcRecord } from "../types/spring";
+import type { SyncRequest, SyncResponse } from "../types/sync";
+import { handleSync } from "./sync";
 
 // Mock D1Database for testing
 class MockD1Database implements D1Database {
-	private records: Map<string, any> = new Map();
+	private records: Map<string, unknown> = new Map();
 
 	async batch<T = unknown>(
 		statements: D1PreparedStatement[],
@@ -19,10 +19,10 @@ class MockD1Database implements D1Database {
 	}
 
 	prepare(query: string): D1PreparedStatement {
-		const bindings: any[] = [];
+		const bindings: unknown[] = [];
 
 		const stmt: D1PreparedStatement = {
-			bind: (...values: any[]) => {
+			bind: (...values: unknown[]) => {
 				bindings.push(...values);
 				return stmt;
 			},
