@@ -26,6 +26,13 @@ interface DbRecord {
 }
 
 /**
+ * SQL query for inserting or replacing a calculation record.
+ */
+const INSERT_OR_REPLACE_CALCULATION = `INSERT OR REPLACE INTO calculations 
+  (id, created_at, updated_at, deleted_at, manufacturer, part_number, purchase_url, notes, units, d, D, n, Davg, k)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+/**
  * Converts a client SpringCalcRecord to database format.
  */
 function toDbRecord(record: SpringCalcRecord): DbRecord {
@@ -139,11 +146,7 @@ export async function handleSync(
 			...created.map((record) => {
 				const dbRecord = toDbRecord(record);
 				return db
-					.prepare(
-						`INSERT OR REPLACE INTO calculations 
-          (id, created_at, updated_at, deleted_at, manufacturer, part_number, purchase_url, notes, units, d, D, n, Davg, k)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-					)
+					.prepare(INSERT_OR_REPLACE_CALCULATION)
 					.bind(
 						dbRecord.id,
 						dbRecord.created_at,
@@ -166,11 +169,7 @@ export async function handleSync(
 			...recordsToApply.map((record) => {
 				const dbRecord = toDbRecord(record);
 				return db
-					.prepare(
-						`INSERT OR REPLACE INTO calculations 
-          (id, created_at, updated_at, deleted_at, manufacturer, part_number, purchase_url, notes, units, d, D, n, Davg, k)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-					)
+					.prepare(INSERT_OR_REPLACE_CALCULATION)
 					.bind(
 						dbRecord.id,
 						dbRecord.created_at,
