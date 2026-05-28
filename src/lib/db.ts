@@ -174,8 +174,11 @@ const indexedSyncPersistence: SyncPersistence = {
 	},
 };
 
+const cloudSyncFlag = import.meta.env.VITE_ENABLE_CLOUD_SYNC;
+
 export const isCloudSyncEnabled =
-	import.meta.env.VITE_ENABLE_CLOUD_SYNC === "true";
+	cloudSyncFlag === "true" ||
+	(import.meta.env.PROD && cloudSyncFlag !== "false");
 
 const hybridBackend = isCloudSyncEnabled
 	? new HybridBackend(indexedBackend, "/api/v1/sync", indexedSyncPersistence)

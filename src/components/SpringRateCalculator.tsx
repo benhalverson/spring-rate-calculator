@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
 	addCalculation,
@@ -136,6 +136,11 @@ export function SpringRateCalculator() {
 		computedK !== undefined &&
 		hasRequiredSourceDetails;
 
+	const refreshSavedCalculations = useCallback(async (): Promise<void> => {
+		const records = await listCalculations();
+		hydrateHistory(records);
+	}, [hydrateHistory]);
+
 	const setInputValue = (
 		field: keyof CalculatorInputs,
 		value: string,
@@ -147,11 +152,8 @@ export function SpringRateCalculator() {
 	};
 
 	useEffect(() => {
-		void (async () => {
-			const records = await listCalculations();
-			hydrateHistory(records);
-		})();
-	}, [hydrateHistory]);
+		void refreshSavedCalculations();
+	}, [refreshSavedCalculations]);
 
 	useEffect(() => {
 		const storedTheme = window.localStorage.getItem("spring-rate-theme");
@@ -187,12 +189,15 @@ export function SpringRateCalculator() {
 
 		const unsubscribe = subscribeSyncStatus((status) => {
 			setSyncStatus(status);
+			if (status.state === "idle") {
+				void refreshSavedCalculations();
+			}
 		});
 
 		return () => {
 			unsubscribe();
 		};
-	}, []);
+	}, [refreshSavedCalculations]);
 
 	useEffect(() => {
 		if (!isCloudSyncEnabled || isOffline) {
@@ -200,6 +205,33 @@ export function SpringRateCalculator() {
 		}
 		void triggerBackgroundSync();
 	}, [isOffline]);
+
+	useEffect(() => {
+		if (!isCloudSyncEnabled) {
+			return;
+		}
+
+		const syncWhenActive = (): void => {
+			if (!window.navigator.onLine || document.visibilityState === "hidden") {
+				return;
+			}
+
+			void triggerBackgroundSync().then(refreshSavedCalculations);
+		};
+		const handleVisibilityChange = (): void => {
+			if (document.visibilityState === "visible") {
+				syncWhenActive();
+			}
+		};
+
+		window.addEventListener("focus", syncWhenActive);
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+
+		return () => {
+			window.removeEventListener("focus", syncWhenActive);
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+		};
+	}, [refreshSavedCalculations]);
 
 	useEffect(() => {
 		if (!toast) {
