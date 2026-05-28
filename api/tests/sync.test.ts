@@ -61,7 +61,8 @@ const syncMock = vi.hoisted(() => {
 	const parseCondition = (condition: { queryChunks?: unknown[] }) => {
 		const chunks = condition?.queryChunks ?? [];
 		const column = chunks.find(
-			(chunk): chunk is { name: string } => typeof (chunk as { name?: unknown })?.name === "string",
+			(chunk): chunk is { name: string } =>
+				typeof (chunk as { name?: unknown })?.name === "string",
 		);
 		const param = chunks.find(
 			(chunk): chunk is { value: unknown; encoder: unknown } =>
@@ -85,7 +86,11 @@ const syncMock = vi.hoisted(() => {
 		return {
 			column: column.name,
 			value: param.value,
-			operator: sqlText.includes(">") ? "gt" : sqlText.includes("=") ? "eq" : "unknown",
+			operator: sqlText.includes(">")
+				? "gt"
+				: sqlText.includes("=")
+					? "eq"
+					: "unknown",
 		};
 	};
 
@@ -169,8 +174,7 @@ const syncMock = vi.hoisted(() => {
 							deletedAt: deletedAt === null ? null : Number(deletedAt),
 							manufacturer: String(manufacturer),
 							partNumber: String(partNumber),
-							purchaseUrl:
-								typeof purchaseUrl === "string" ? purchaseUrl : null,
+							purchaseUrl: typeof purchaseUrl === "string" ? purchaseUrl : null,
 							notes: typeof notes === "string" ? notes : null,
 							units: units as "mm" | "in",
 							wireDiameter: Number(wireDiameter),
@@ -211,7 +215,10 @@ const syncMock = vi.hoisted(() => {
 		},
 		batch: async <T = unknown>(statements: D1PreparedStatement[]) => {
 			const snapshot = new Map(
-				Array.from(records.entries()).map(([id, record]) => [id, cloneRecord(record)]),
+				Array.from(records.entries()).map(([id, record]) => [
+					id,
+					cloneRecord(record),
+				]),
 			);
 
 			try {

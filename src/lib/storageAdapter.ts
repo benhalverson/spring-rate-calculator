@@ -279,7 +279,9 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 		void this.triggerBackgroundSync();
 	}
 
-	private async readSyncResponse(response: Response): Promise<SyncResponseData> {
+	private async readSyncResponse(
+		response: Response,
+	): Promise<SyncResponseData> {
 		let body: SyncResponseEnvelope | null = null;
 
 		try {
@@ -296,7 +298,7 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 			throw new Error(`Sync failed with status ${response.status}`);
 		}
 
-		if (!body || !body.success) {
+		if (!body?.success) {
 			throw new Error("Sync response had an unexpected format.");
 		}
 

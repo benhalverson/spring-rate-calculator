@@ -98,7 +98,9 @@ describe("db", () => {
 
 		const storedRecords = await readAllStoredRecords();
 		expect(storedRecords).toHaveLength(2);
-		const removedRecord = storedRecords.find((record) => record.id === "remove");
+		const removedRecord = storedRecords.find(
+			(record) => record.id === "remove",
+		);
 		expect(removedRecord?.deletedAt).not.toBeNull();
 		expect(removedRecord?.updatedAt).toBe(removedRecord?.deletedAt);
 	});
@@ -113,7 +115,9 @@ describe("db", () => {
 
 		const storedRecords = await readAllStoredRecords();
 		expect(storedRecords).toHaveLength(2);
-		expect(storedRecords.every((record) => record.deletedAt !== null)).toBe(true);
+		expect(storedRecords.every((record) => record.deletedAt !== null)).toBe(
+			true,
+		);
 	});
 
 	it("bulkDeleteCalculations does nothing with empty array", async () => {
@@ -142,7 +146,9 @@ describe("db", () => {
 		const storedRecords = await readAllStoredRecords();
 		expect(storedRecords).toHaveLength(3);
 		expect(
-			storedRecords.filter((record) => record.deletedAt !== null).map((record) => record.id),
+			storedRecords
+				.filter((record) => record.deletedAt !== null)
+				.map((record) => record.id),
 		).toEqual(["remove-2", "remove-1"]);
 	});
 

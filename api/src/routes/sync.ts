@@ -369,7 +369,10 @@ app.post("/", syncRequestValidator, async (context) => {
 				continue;
 			}
 
-			if (existing.deletedAt === null && existing.updatedAt !== record.updatedAt) {
+			if (
+				existing.deletedAt === null &&
+				existing.updatedAt !== record.updatedAt
+			) {
 				const conflict = resolveConflict(record, existingRecord);
 				conflicts.push(conflict);
 
@@ -380,13 +383,17 @@ app.post("/", syncRequestValidator, async (context) => {
 		}
 
 		statements.push(
-			database.prepare(UPSERT_CALCULATION_SQL).bind(...toUpsertBindings(record)),
+			database
+				.prepare(UPSERT_CALCULATION_SQL)
+				.bind(...toUpsertBindings(record)),
 		);
 	}
 
 	for (const id of deleted) {
 		statements.push(
-			database.prepare(SOFT_DELETE_SQL).bind(newSyncTimestamp, newSyncTimestamp, id),
+			database
+				.prepare(SOFT_DELETE_SQL)
+				.bind(newSyncTimestamp, newSyncTimestamp, id),
 		);
 	}
 
