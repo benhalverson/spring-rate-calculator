@@ -23,10 +23,17 @@ interface SyncAwareBackend {
 	triggerBackgroundSync(): Promise<void>;
 }
 
-type SyncOperation =
+export type SyncOperation =
 	| { type: "add"; record: SpringCalcRecord }
 	| { type: "delete"; id: string; deletedAt: number }
 	| { type: "bulkDelete"; ids: string[]; deletedAt: number };
+
+export interface SyncPersistence {
+	readQueue(): Promise<unknown[]>;
+	writeQueue(operations: SyncOperation[]): Promise<void>;
+	readLastSyncedAt(): Promise<number | undefined>;
+	writeLastSyncedAt(timestamp: number): Promise<void>;
+}
 
 type SyncConflict = {
 	id: string;
@@ -56,11 +63,24 @@ type SyncResponseEnvelope =
 			};
 	  };
 
-const QUEUE_STORAGE_KEY = "spring-rate-sync-queue";
-const LAST_SYNC_STORAGE_KEY = "spring-rate-last-synced-at";
-
 const canUseWindow = (): boolean => {
 	return typeof window !== "undefined";
+};
+
+const createMemorySyncPersistence = (): SyncPersistence => {
+	let queue: SyncOperation[] = [];
+	let lastSyncedAt: number | undefined;
+
+	return {
+		readQueue: async () => [...queue],
+		writeQueue: async (operations) => {
+			queue = [...operations];
+		},
+		readLastSyncedAt: async () => lastSyncedAt,
+		writeLastSyncedAt: async (timestamp) => {
+			lastSyncedAt = timestamp;
+		},
+	};
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -203,79 +223,11 @@ const normalizeQueuedOperation = (value: unknown): SyncOperation | null => {
 	return null;
 };
 
-const readQueuedOperations = (): SyncOperation[] => {
-	if (!canUseWindow()) {
-		return [];
-	}
-
-	try {
-		const raw = window.localStorage.getItem(QUEUE_STORAGE_KEY);
-
-		if (!raw) {
-			return [];
-		}
-
-		const parsed = JSON.parse(raw) as unknown;
-
-		if (!Array.isArray(parsed)) {
-			return [];
-		}
-
-		return parsed.flatMap((value) => {
-			const operation = normalizeQueuedOperation(value);
-			return operation ? [operation] : [];
-		});
-	} catch {
-		return [];
-	}
-};
-
-const writeQueuedOperations = (operations: SyncOperation[]): void => {
-	if (!canUseWindow()) {
-		return;
-	}
-
-	try {
-		window.localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(operations));
-	} catch {
-		// Ignore storage failures and continue with in-memory queue.
-	}
-};
-
-const readLastSyncedAt = (): number | undefined => {
-	if (!canUseWindow()) {
-		return undefined;
-	}
-
-	try {
-		const raw = window.localStorage.getItem(LAST_SYNC_STORAGE_KEY);
-
-		if (!raw) {
-			return undefined;
-		}
-
-		const parsed = Number(raw);
-		return Number.isFinite(parsed) ? parsed : undefined;
-	} catch {
-		return undefined;
-	}
-};
-
-const writeLastSyncedAt = (timestamp?: number): void => {
-	if (!canUseWindow()) {
-		return;
-	}
-
-	try {
-		if (timestamp === undefined) {
-			window.localStorage.removeItem(LAST_SYNC_STORAGE_KEY);
-			return;
-		}
-
-		window.localStorage.setItem(LAST_SYNC_STORAGE_KEY, String(timestamp));
-	} catch {
-		// Ignore storage failures and continue with in-memory state.
-	}
+const normalizeQueuedOperations = (values: unknown[]): SyncOperation[] => {
+	return values.flatMap((value) => {
+		const operation = normalizeQueuedOperation(value);
+		return operation ? [operation] : [];
+	});
 };
 
 const dedupeRecords = (records: SpringCalcRecord[]): SpringCalcRecord[] => {
@@ -335,26 +287,28 @@ export class IndexedDBBackend implements StorageBackend {
 export class HybridBackend implements StorageBackend, SyncAwareBackend {
 	private readonly localBackend: StorageBackend;
 	private readonly syncEndpoint: string;
+	private readonly persistence: SyncPersistence;
+	private readonly ready: Promise<void>;
 	private readonly listeners = new Set<(status: SyncStatus) => void>();
-	private readonly queue: SyncOperation[];
+	private readonly queue: SyncOperation[] = [];
 
 	private status: SyncStatus;
 	private syncPromise: Promise<void> | null = null;
 
-	constructor(localBackend: StorageBackend, syncEndpoint = "/api/v1/sync") {
+	constructor(
+		localBackend: StorageBackend,
+		syncEndpoint = "/api/v1/sync",
+		persistence: SyncPersistence = createMemorySyncPersistence(),
+	) {
 		this.localBackend = localBackend;
 		this.syncEndpoint = syncEndpoint;
-		this.queue = readQueuedOperations();
-
-		writeQueuedOperations(this.queue);
-
-		const lastSyncedAt = readLastSyncedAt();
+		this.persistence = persistence;
 
 		this.status = {
-			state: this.queue.length > 0 ? "queued" : "idle",
-			pending: this.queue.length,
-			lastSyncedAt,
+			state: "idle",
+			pending: 0,
 		};
+		this.ready = this.loadSyncState();
 
 		if (canUseWindow()) {
 			window.addEventListener("online", () => {
@@ -365,6 +319,34 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 		void this.triggerBackgroundSync();
 	}
 
+	private async loadSyncState(): Promise<void> {
+		try {
+			const [storedQueue, lastSyncedAt] = await Promise.all([
+				this.persistence.readQueue(),
+				this.persistence.readLastSyncedAt(),
+			]);
+			const queue = normalizeQueuedOperations(storedQueue);
+			this.queue.splice(0, this.queue.length, ...queue);
+			await this.persistence.writeQueue(this.queue);
+
+			this.setStatus({
+				state: this.queue.length > 0 ? "queued" : "idle",
+				pending: this.queue.length,
+				lastSyncedAt,
+			});
+		} catch (error) {
+			const message =
+				error instanceof Error ? error.message : "Failed to load sync state.";
+
+			this.setStatus({
+				state: "error",
+				pending: this.queue.length,
+				lastSyncedAt: this.status.lastSyncedAt,
+				lastError: message,
+			});
+		}
+	}
+
 	private notify(): void {
 		for (const listener of this.listeners) {
 			listener(this.status);
@@ -373,13 +355,13 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 
 	private setStatus(next: SyncStatus): void {
 		this.status = next;
-		writeLastSyncedAt(next.lastSyncedAt);
 		this.notify();
 	}
 
-	private enqueue(operation: SyncOperation): void {
+	private async enqueue(operation: SyncOperation): Promise<void> {
+		await this.ready;
 		this.queue.push(operation);
-		writeQueuedOperations(this.queue);
+		await this.persistence.writeQueue(this.queue);
 
 		this.setStatus({
 			state: "queued",
@@ -447,6 +429,16 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 			return this.syncPromise;
 		}
 
+		this.syncPromise = this.runBackgroundSync().finally(() => {
+			this.syncPromise = null;
+		});
+
+		return this.syncPromise;
+	}
+
+	private async runBackgroundSync(): Promise<void> {
+		await this.ready;
+
 		if (!this.isOnline()) {
 			if (this.queue.length > 0) {
 				this.setStatus({
@@ -455,22 +447,18 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 					lastSyncedAt: this.status.lastSyncedAt,
 				});
 			}
-			return Promise.resolve();
+			return;
 		}
 
-		this.syncPromise = new Promise((resolve) => {
-			setTimeout(() => {
-				void this.flushQueue().finally(() => {
-					this.syncPromise = null;
-					resolve();
-				});
-			}, 250);
+		await new Promise((resolve) => {
+			setTimeout(resolve, 250);
 		});
-
-		return this.syncPromise;
+		await this.flushQueue();
 	}
 
 	private async flushQueue(): Promise<void> {
+		await this.ready;
+
 		if (!this.isOnline()) {
 			this.setStatus({
 				state: "queued",
@@ -505,7 +493,10 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 			await this.applySyncResponse(syncResponse);
 
 			this.queue.splice(0, batch.length);
-			writeQueuedOperations(this.queue);
+			await Promise.all([
+				this.persistence.writeQueue(this.queue),
+				this.persistence.writeLastSyncedAt(syncResponse.newSyncTimestamp),
+			]);
 
 			this.setStatus({
 				state: this.queue.length > 0 ? "queued" : "idle",
@@ -546,7 +537,7 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 
 	async addCalculation(record: SpringCalcRecord): Promise<void> {
 		await this.localBackend.addCalculation(record);
-		this.enqueue({ type: "add", record });
+		await this.enqueue({ type: "add", record });
 	}
 
 	listCalculations(): Promise<SpringCalcRecord[]> {
@@ -556,7 +547,7 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 	async deleteCalculation(id: string): Promise<void> {
 		const deletedAt = Date.now();
 		await this.localBackend.deleteCalculation(id, deletedAt);
-		this.enqueue({ type: "delete", id, deletedAt });
+		await this.enqueue({ type: "delete", id, deletedAt });
 	}
 
 	async bulkDeleteCalculations(ids: string[]): Promise<void> {
@@ -564,7 +555,7 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 		await this.localBackend.bulkDeleteCalculations(ids, deletedAt);
 
 		if (ids.length > 0) {
-			this.enqueue({ type: "bulkDelete", ids: [...ids], deletedAt });
+			await this.enqueue({ type: "bulkDelete", ids: [...ids], deletedAt });
 		}
 	}
 
@@ -577,7 +568,7 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 		const ids = records.map((record) => record.id);
 
 		if (ids.length > 0) {
-			this.enqueue({ type: "bulkDelete", ids, deletedAt });
+			await this.enqueue({ type: "bulkDelete", ids, deletedAt });
 		}
 	}
 }

@@ -1,7 +1,12 @@
 import Dexie, { type EntityTable } from "dexie";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SpringCalcRecord } from "../types/spring";
-import { HybridBackend, IndexedDBBackend } from "./storageAdapter";
+import {
+	HybridBackend,
+	IndexedDBBackend,
+	type SyncOperation,
+	type SyncPersistence,
+} from "./storageAdapter";
 
 type StoredRecord = {
 	id: string;
@@ -22,6 +27,16 @@ type StoredRecord = {
 	springRate: number;
 	syncVersion: number;
 	deviceId: string | null;
+};
+
+type SyncQueueRow = {
+	id?: number;
+	operation: SyncOperation;
+};
+
+type SyncMetaRow = {
+	key: "lastSyncedAt";
+	value: number;
 };
 
 const apiMock = vi.hoisted(() => {
@@ -139,12 +154,16 @@ import app from "../../api/src/index";
 
 class TestSpringRateDatabase extends Dexie {
 	calculations!: EntityTable<SpringCalcRecord, "id">;
+	syncQueue!: EntityTable<SyncQueueRow, "id">;
+	syncMeta!: EntityTable<SyncMetaRow, "key">;
 
 	constructor() {
 		super("spring-rate-sync-integration-db");
-		this.version(3).stores({
+		this.version(4).stores({
 			calculations:
 				"id, createdAt, updatedAt, deletedAt, manufacturer, partNumber, [manufacturer+partNumber]",
+			syncQueue: "++id",
+			syncMeta: "key",
 		});
 	}
 }
@@ -248,6 +267,38 @@ const createLocalBackend = (db: TestSpringRateDatabase): IndexedDBBackend => {
 	});
 };
 
+const createSyncPersistence = (
+	db: TestSpringRateDatabase,
+): SyncPersistence => ({
+	readQueue: async () => {
+		const rows = await db.syncQueue.orderBy("id").toArray();
+		return rows.map((row) => row.operation);
+	},
+	writeQueue: async (operations) => {
+		await db.transaction("rw", db.syncQueue, async () => {
+			await db.syncQueue.clear();
+			if (operations.length > 0) {
+				await db.syncQueue.bulkAdd(
+					operations.map((operation) => ({ operation })),
+				);
+			}
+		});
+	},
+	readLastSyncedAt: async () => {
+		const row = await db.syncMeta.get("lastSyncedAt");
+		return row && Number.isFinite(row.value) ? row.value : undefined;
+	},
+	writeLastSyncedAt: async (timestamp) => {
+		await db.syncMeta.put({ key: "lastSyncedAt", value: timestamp });
+	},
+});
+
+const createHybridBackend = (
+	db: TestSpringRateDatabase,
+	localBackend = createLocalBackend(db),
+): HybridBackend =>
+	new HybridBackend(localBackend, "/api/v1/sync", createSyncPersistence(db));
+
 const flushSync = async (backend: HybridBackend): Promise<void> => {
 	await backend.triggerBackgroundSync();
 };
@@ -258,7 +309,6 @@ describe("HybridBackend sync integration", () => {
 
 	beforeEach(async () => {
 		apiMock.clear();
-		window.localStorage.clear();
 		await Dexie.delete("spring-rate-sync-integration-db");
 		db = new TestSpringRateDatabase();
 		onlineSpy = vi.spyOn(window.navigator, "onLine", "get");
@@ -281,18 +331,18 @@ describe("HybridBackend sync integration", () => {
 	});
 
 	it("flushes a queued IndexedDB save to the sync API", async () => {
-		const localBackend = createLocalBackend(db);
-		const backend = new HybridBackend(localBackend, "/api/v1/sync");
+		const backend = createHybridBackend(db);
 		const record = baseRecord();
 
 		await backend.addCalculation(record);
 		await flushSync(backend);
 
 		expect(apiMock.getRecord(record.id)).toEqual(toStoredRecord(record));
-		expect(window.localStorage.getItem("spring-rate-sync-queue")).toBe("[]");
-		expect(
-			Number(window.localStorage.getItem("spring-rate-last-synced-at")),
-		).toBe(backend.getSyncStatus().lastSyncedAt);
+		await expect(db.syncQueue.toArray()).resolves.toEqual([]);
+		await expect(db.syncMeta.get("lastSyncedAt")).resolves.toEqual({
+			key: "lastSyncedAt",
+			value: backend.getSyncStatus().lastSyncedAt,
+		});
 		expect(backend.getSyncStatus().pending).toBe(0);
 	});
 
@@ -306,17 +356,15 @@ describe("HybridBackend sync integration", () => {
 		const { updatedAt, deletedAt, ...staleQueuedRecord } = record;
 		void updatedAt;
 		void deletedAt;
-		window.localStorage.setItem(
-			"spring-rate-sync-queue",
-			JSON.stringify([{ type: "add", record: staleQueuedRecord }]),
-		);
+		await db.syncQueue.add({
+			operation: { type: "add", record: staleQueuedRecord } as SyncOperation,
+		});
 
-		const localBackend = createLocalBackend(db);
-		const backend = new HybridBackend(localBackend, "/api/v1/sync");
+		const backend = createHybridBackend(db);
 		await flushSync(backend);
 
 		expect(apiMock.getRecord(record.id)).toEqual(toStoredRecord(record));
-		expect(window.localStorage.getItem("spring-rate-sync-queue")).toBe("[]");
+		await expect(db.syncQueue.toArray()).resolves.toEqual([]);
 	});
 
 	it("hydrates IndexedDB from a pull-only startup sync", async () => {
@@ -325,8 +373,7 @@ describe("HybridBackend sync integration", () => {
 		});
 		apiMock.seed([toStoredRecord(record)]);
 
-		const localBackend = createLocalBackend(db);
-		const backend = new HybridBackend(localBackend, "/api/v1/sync");
+		const backend = createHybridBackend(db);
 		await flushSync(backend);
 
 		await expect(backend.listCalculations()).resolves.toEqual([record]);
@@ -335,8 +382,7 @@ describe("HybridBackend sync integration", () => {
 
 	it("keeps offline changes queued and flushes them when online", async () => {
 		onlineSpy.mockReturnValue(false);
-		const localBackend = createLocalBackend(db);
-		const backend = new HybridBackend(localBackend, "/api/v1/sync");
+		const backend = createHybridBackend(db);
 		const record = baseRecord({
 			id: "33333333-3333-4333-8333-333333333333",
 		});
@@ -352,6 +398,7 @@ describe("HybridBackend sync integration", () => {
 
 		expect(apiMock.getRecord(record.id)).toEqual(toStoredRecord(record));
 		expect(backend.getSyncStatus().state).toBe("idle");
+		await expect(db.syncQueue.toArray()).resolves.toEqual([]);
 	});
 
 	it("soft-deletes local IndexedDB rows from server delete deltas", async () => {
@@ -366,11 +413,11 @@ describe("HybridBackend sync integration", () => {
 			deletedAt: 2_000,
 		};
 		apiMock.seed([toStoredRecord(deletedRecord, 2)]);
-		window.localStorage.setItem("spring-rate-last-synced-at", "1500");
+		await db.syncMeta.put({ key: "lastSyncedAt", value: 1_500 });
 
 		const localBackend = createLocalBackend(db);
 		await localBackend.addCalculation(record);
-		const backend = new HybridBackend(localBackend, "/api/v1/sync");
+		const backend = createHybridBackend(db, localBackend);
 
 		await flushSync(backend);
 

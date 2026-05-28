@@ -6,8 +6,20 @@ import {
 	HybridBackend,
 	IndexedDBBackend,
 	type StorageBackend,
+	type SyncOperation,
+	type SyncPersistence,
 	type SyncStatus,
 } from "./storageAdapter";
+
+type SyncQueueRow = {
+	id?: number;
+	operation: SyncOperation;
+};
+
+type SyncMetaRow = {
+	key: "lastSyncedAt";
+	value: number;
+};
 
 /**
  * Typed Dexie database for spring calculation persistence.
@@ -15,6 +27,10 @@ import {
 class SpringRateDatabase extends Dexie {
 	/** IndexedDB table that stores spring calculation records. */
 	calculations!: EntityTable<SpringCalcRecord, "id">;
+	/** IndexedDB table that stores pending sync operations. */
+	syncQueue!: EntityTable<SyncQueueRow, "id">;
+	/** IndexedDB table that stores sync metadata. */
+	syncMeta!: EntityTable<SyncMetaRow, "key">;
 
 	constructor() {
 		super("spring-rate-db");
@@ -57,6 +73,12 @@ class SpringRateDatabase extends Dexie {
 						}
 					});
 			});
+		this.version(4).stores({
+			calculations:
+				"id, createdAt, updatedAt, deletedAt, manufacturer, partNumber, [manufacturer+partNumber]",
+			syncQueue: "++id",
+			syncMeta: "key",
+		});
 	}
 }
 
@@ -128,11 +150,35 @@ const indexedBackend = new IndexedDBBackend({
 	clear: async (deletedAt) => softDeleteAllRecords(deletedAt),
 });
 
+const indexedSyncPersistence: SyncPersistence = {
+	readQueue: async () => {
+		const rows = await db.syncQueue.orderBy("id").toArray();
+		return rows.map((row) => row.operation);
+	},
+	writeQueue: async (operations) => {
+		await db.transaction("rw", db.syncQueue, async () => {
+			await db.syncQueue.clear();
+			if (operations.length > 0) {
+				await db.syncQueue.bulkAdd(
+					operations.map((operation) => ({ operation })),
+				);
+			}
+		});
+	},
+	readLastSyncedAt: async () => {
+		const row = await db.syncMeta.get("lastSyncedAt");
+		return row && Number.isFinite(row.value) ? row.value : undefined;
+	},
+	writeLastSyncedAt: async (timestamp) => {
+		await db.syncMeta.put({ key: "lastSyncedAt", value: timestamp });
+	},
+};
+
 export const isCloudSyncEnabled =
 	import.meta.env.VITE_ENABLE_CLOUD_SYNC === "true";
 
 const hybridBackend = isCloudSyncEnabled
-	? new HybridBackend(indexedBackend)
+	? new HybridBackend(indexedBackend, "/api/v1/sync", indexedSyncPersistence)
 	: null;
 
 const backend: StorageBackend = hybridBackend ?? indexedBackend;

@@ -9,6 +9,7 @@ import {
 	deleteCalculation,
 	listCalculations,
 } from "./db";
+import type { SyncOperation } from "./storageAdapter";
 
 const baseRecord = (
 	overrides: Partial<SpringCalcRecord>,
@@ -32,12 +33,16 @@ const baseRecord = (
 
 class TestSpringRateDatabase extends Dexie {
 	calculations!: EntityTable<SpringCalcRecord, "id">;
+	syncQueue!: EntityTable<{ id?: number; operation: SyncOperation }, "id">;
+	syncMeta!: EntityTable<{ key: "lastSyncedAt"; value: number }, "key">;
 
 	constructor() {
 		super("spring-rate-db");
-		this.version(3).stores({
+		this.version(4).stores({
 			calculations:
 				"id, createdAt, updatedAt, deletedAt, manufacturer, partNumber, [manufacturer+partNumber]",
+			syncQueue: "++id",
+			syncMeta: "key",
 		});
 	}
 }
