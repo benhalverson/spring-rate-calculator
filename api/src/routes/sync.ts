@@ -159,7 +159,6 @@ const toDbInsert = (record: DbSyncRecord): NewCalculation => ({
 });
 
 const toDbUpdate = (record: DbSyncRecord) => ({
-	createdAt: record.createdAt,
 	updatedAt: record.updatedAt,
 	deletedAt: record.deletedAt,
 	userId: record.userId,
@@ -342,9 +341,10 @@ app.post("/", syncRequestValidator, async (context) => {
 				conflicts.push(conflict);
 
 				if (conflict.winner === change.record) {
-					setProjectedRecord(
-						toDbRecord(change.record, existing.syncVersion + 1),
-					);
+					setProjectedRecord({
+						...toDbRecord(change.record, existing.syncVersion + 1),
+						createdAt: existing.createdAt,
+					});
 				}
 				break;
 			}

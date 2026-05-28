@@ -63,9 +63,96 @@ const canUseWindow = (): boolean => {
 	return typeof window !== "undefined";
 };
 
-const isQueuedOperation = (value: unknown): value is SyncOperation => {
+const isObject = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null;
+
+const isNumber = (value: unknown): value is number =>
+	typeof value === "number" && Number.isFinite(value);
+
+const isString = (value: unknown): value is string => typeof value === "string";
+
+const readOptionalString = (value: unknown): string | undefined => {
+	if (value === undefined) {
+		return undefined;
+	}
+
+	return isString(value) ? value : undefined;
+};
+
+const normalizeQueuedRecord = (value: unknown): SpringCalcRecord | null => {
+	if (!isObject(value)) {
+		return null;
+	}
+
+	const {
+		id,
+		createdAt,
+		updatedAt,
+		deletedAt,
+		manufacturer,
+		partNumber,
+		purchaseUrl,
+		notes,
+		units,
+		d,
+		D,
+		n,
+		Davg,
+		k,
+	} = value;
+
+	if (
+		!isString(id) ||
+		!isNumber(createdAt) ||
+		!isString(manufacturer) ||
+		!isString(partNumber) ||
+		(units !== "mm" && units !== "in") ||
+		!isNumber(d) ||
+		!isNumber(D) ||
+		!isNumber(n) ||
+		!isNumber(Davg) ||
+		!isNumber(k)
+	) {
+		return null;
+	}
+
+	const normalizedPurchaseUrl = readOptionalString(purchaseUrl);
+	const normalizedNotes = readOptionalString(notes);
+
+	if (
+		(purchaseUrl !== undefined && normalizedPurchaseUrl === undefined) ||
+		(notes !== undefined && normalizedNotes === undefined)
+	) {
+		return null;
+	}
+
+	if (deletedAt !== undefined && deletedAt !== null && !isNumber(deletedAt)) {
+		return null;
+	}
+
+	return {
+		id,
+		createdAt,
+		updatedAt: isNumber(updatedAt) ? updatedAt : createdAt,
+		deletedAt: deletedAt === undefined ? null : deletedAt,
+		manufacturer,
+		partNumber,
+		...(normalizedPurchaseUrl === undefined
+			? {}
+			: { purchaseUrl: normalizedPurchaseUrl }),
+		...(normalizedNotes === undefined ? {} : { notes: normalizedNotes }),
+		units,
+		d,
+		D,
+		n,
+		Davg,
+		k,
+	};
+};
+
+const normalizeQueuedOperation = (value: unknown): SyncOperation | null => {
 	if (typeof value !== "object" || value === null || !("type" in value)) {
-		return false;
+		return null;
 	}
 
 	const operation = value as {
@@ -77,25 +164,43 @@ const isQueuedOperation = (value: unknown): value is SyncOperation => {
 	};
 
 	if (operation.type === "add") {
-		return typeof operation.record === "object" && operation.record !== null;
+		const record = normalizeQueuedRecord(operation.record);
+		return record ? { type: "add", record } : null;
 	}
 
 	if (operation.type === "delete") {
-		return (
-			typeof operation.id === "string" &&
-			typeof operation.deletedAt === "number"
-		);
+		if (!isString(operation.id)) {
+			return null;
+		}
+
+		return {
+			type: "delete",
+			id: operation.id,
+			deletedAt: isNumber(operation.deletedAt)
+				? operation.deletedAt
+				: Date.now(),
+		};
 	}
 
 	if (operation.type === "bulkDelete") {
-		return (
-			Array.isArray(operation.ids) &&
-			operation.ids.every((id) => typeof id === "string") &&
-			typeof operation.deletedAt === "number"
-		);
+		if (
+			!Array.isArray(operation.ids) ||
+			operation.ids.length === 0 ||
+			!operation.ids.every(isString)
+		) {
+			return null;
+		}
+
+		return {
+			type: "bulkDelete",
+			ids: operation.ids,
+			deletedAt: isNumber(operation.deletedAt)
+				? operation.deletedAt
+				: Date.now(),
+		};
 	}
 
-	return false;
+	return null;
 };
 
 const readQueuedOperations = (): SyncOperation[] => {
@@ -116,7 +221,10 @@ const readQueuedOperations = (): SyncOperation[] => {
 			return [];
 		}
 
-		return parsed.filter(isQueuedOperation);
+		return parsed.flatMap((value) => {
+			const operation = normalizeQueuedOperation(value);
+			return operation ? [operation] : [];
+		});
 	} catch {
 		return [];
 	}

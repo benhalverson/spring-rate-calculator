@@ -97,7 +97,7 @@ const apiMock = vi.hoisted(() => {
 		}),
 		insert: () => ({
 			values: (value: StoredRecord) => ({
-				onConflictDoUpdate: ({ set }: { set: StoredRecord }) => ({
+				onConflictDoUpdate: ({ set }: { set: Partial<StoredRecord> }) => ({
 					run: async () => {
 						const existing = records.get(value.id);
 						records.set(value.id, existing ? { ...existing, ...set } : value);
@@ -294,6 +294,29 @@ describe("HybridBackend sync integration", () => {
 			Number(window.localStorage.getItem("spring-rate-last-synced-at")),
 		).toBe(backend.getSyncStatus().lastSyncedAt);
 		expect(backend.getSyncStatus().pending).toBe(0);
+	});
+
+	it("normalizes stale queued add records before flushing", async () => {
+		const record = baseRecord({
+			id: "55555555-5555-4555-8555-555555555555",
+			createdAt: 1_500,
+			updatedAt: 1_500,
+			deletedAt: null,
+		});
+		const { updatedAt, deletedAt, ...staleQueuedRecord } = record;
+		void updatedAt;
+		void deletedAt;
+		window.localStorage.setItem(
+			"spring-rate-sync-queue",
+			JSON.stringify([{ type: "add", record: staleQueuedRecord }]),
+		);
+
+		const localBackend = createLocalBackend(db);
+		const backend = new HybridBackend(localBackend, "/api/v1/sync");
+		await flushSync(backend);
+
+		expect(apiMock.getRecord(record.id)).toEqual(toStoredRecord(record));
+		expect(window.localStorage.getItem("spring-rate-sync-queue")).toBe("[]");
 	});
 
 	it("hydrates IndexedDB from a pull-only startup sync", async () => {

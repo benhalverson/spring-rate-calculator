@@ -147,7 +147,7 @@ const syncMock = vi.hoisted(() => {
 		}),
 		insert: () => ({
 			values: (value: StoredRecord) => ({
-				onConflictDoUpdate: ({ set }: { set: StoredRecord }) => ({
+				onConflictDoUpdate: ({ set }: { set: Partial<StoredRecord> }) => ({
 					run: async () => {
 						if (value.id === failOnWriteId) {
 							throw new Error("Simulated batch write failure");
@@ -373,10 +373,14 @@ describe("POST /api/v1/sync", () => {
 		syncMock.seed([toStoredRecord(serverRecord, 3)]);
 
 		const clientRecord = makeRecord({
-			createdAt: 500,
+			createdAt: 999,
 			updatedAt: 2_000,
 			manufacturer: "Client winner",
 		});
+		const expectedStoredRecord = {
+			...clientRecord,
+			createdAt: serverRecord.createdAt,
+		};
 
 		const response = await syncRequest({
 			changes: [{ type: "add", record: clientRecord }],
@@ -386,12 +390,13 @@ describe("POST /api/v1/sync", () => {
 		expect(response.status).toBe(200);
 		const stored = syncMock.getRecord(clientRecord.id);
 		expect(stored?.manufacturer).toBe("Client winner");
+		expect(stored?.createdAt).toBe(serverRecord.createdAt);
 		expect(stored?.syncVersion).toBe(4);
 
 		const body = (await response.json()) as SyncSuccessBody;
 		expect(body.data.conflicts).toHaveLength(1);
 		expect(body.data.conflicts[0]?.winner.manufacturer).toBe("Client winner");
-		expect(body.data.updated).toEqual([clientRecord]);
+		expect(body.data.updated).toEqual([expectedStoredRecord]);
 	});
 
 	it("lets a newer client delete win", async () => {
