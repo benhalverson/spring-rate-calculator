@@ -62,14 +62,69 @@ class SpringRateDatabase extends Dexie {
 
 const db = new SpringRateDatabase();
 
+const isActiveRecord = (record: SpringCalcRecord): boolean =>
+	record.deletedAt === null;
+
+const toDeletedRecord = (
+	record: SpringCalcRecord,
+	deletedAt: number,
+): SpringCalcRecord => ({
+	...record,
+	updatedAt: deletedAt,
+	deletedAt,
+});
+
+const softDeleteRecords = async (ids: string[]): Promise<void> => {
+	if (ids.length === 0) {
+		return;
+	}
+
+	await db.transaction("rw", db.calculations, async () => {
+		const records = await db.calculations.bulkGet(ids);
+		const deletedAt = Date.now();
+		const tombstones = records
+			.filter((record): record is SpringCalcRecord =>
+				Boolean(record && isActiveRecord(record)),
+			)
+			.map((record) => toDeletedRecord(record, deletedAt));
+
+		if (tombstones.length > 0) {
+			await db.calculations.bulkPut(tombstones);
+		}
+	});
+};
+
+const softDeleteAllRecords = async (): Promise<void> => {
+	await db.transaction("rw", db.calculations, async () => {
+		const activeRecords = await db.calculations
+			.toCollection()
+			.filter(isActiveRecord)
+			.toArray();
+
+		if (activeRecords.length === 0) {
+			return;
+		}
+
+		const deletedAt = Date.now();
+		await db.calculations.bulkPut(
+			activeRecords.map((record) => toDeletedRecord(record, deletedAt)),
+		);
+	});
+};
+
 const indexedBackend = new IndexedDBBackend({
 	add: async (record) => {
 		await db.calculations.put(record);
 	},
-	list: async () => db.calculations.orderBy("createdAt").reverse().toArray(),
-	deleteOne: async (id) => db.calculations.delete(id),
-	deleteMany: async (ids) => db.calculations.bulkDelete(ids),
-	clear: async () => db.calculations.clear(),
+	list: async () =>
+		db.calculations
+			.orderBy("createdAt")
+			.reverse()
+			.filter(isActiveRecord)
+			.toArray(),
+	deleteOne: async (id) => softDeleteRecords([id]),
+	deleteMany: async (ids) => softDeleteRecords(ids),
+	clear: async () => softDeleteAllRecords(),
 });
 
 export const isCloudSyncEnabled =

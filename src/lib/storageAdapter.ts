@@ -26,13 +26,71 @@ interface SyncAwareBackend {
 type SyncOperation =
 	| { type: "add"; record: SpringCalcRecord }
 	| { type: "delete"; id: string }
-	| { type: "bulkDelete"; ids: string[] }
-	| { type: "clear" };
+	| { type: "bulkDelete"; ids: string[] };
+
+type SyncConflict = {
+	id: string;
+	winner: SpringCalcRecord;
+	loser: SpringCalcRecord;
+	reason: string;
+};
+
+type SyncResponseData = {
+	newSyncTimestamp: number;
+	created: SpringCalcRecord[];
+	updated: SpringCalcRecord[];
+	deleted: string[];
+	conflicts: SyncConflict[];
+};
+
+type SyncResponseEnvelope =
+	| {
+			success: true;
+			data: SyncResponseData;
+	  }
+	| {
+			success: false;
+			error: {
+				message: string;
+				code?: string;
+			};
+	  };
 
 const QUEUE_STORAGE_KEY = "spring-rate-sync-queue";
+const LAST_SYNC_STORAGE_KEY = "spring-rate-last-synced-at";
 
 const canUseWindow = (): boolean => {
 	return typeof window !== "undefined";
+};
+
+const isQueuedOperation = (value: unknown): value is SyncOperation => {
+	if (typeof value !== "object" || value === null || !("type" in value)) {
+		return false;
+	}
+
+	const operation = value as {
+		type?: unknown;
+		record?: unknown;
+		id?: unknown;
+		ids?: unknown;
+	};
+
+	if (operation.type === "add") {
+		return typeof operation.record === "object" && operation.record !== null;
+	}
+
+	if (operation.type === "delete") {
+		return typeof operation.id === "string";
+	}
+
+	if (operation.type === "bulkDelete") {
+		return (
+			Array.isArray(operation.ids) &&
+			operation.ids.every((id) => typeof id === "string")
+		);
+	}
+
+	return false;
 };
 
 const readQueuedOperations = (): SyncOperation[] => {
@@ -42,14 +100,18 @@ const readQueuedOperations = (): SyncOperation[] => {
 
 	try {
 		const raw = window.localStorage.getItem(QUEUE_STORAGE_KEY);
+
 		if (!raw) {
 			return [];
 		}
+
 		const parsed = JSON.parse(raw) as unknown;
+
 		if (!Array.isArray(parsed)) {
 			return [];
 		}
-		return parsed as SyncOperation[];
+
+		return parsed.filter(isQueuedOperation);
 	} catch {
 		return [];
 	}
@@ -65,6 +127,56 @@ const writeQueuedOperations = (operations: SyncOperation[]): void => {
 	} catch {
 		// Ignore storage failures and continue with in-memory queue.
 	}
+};
+
+const readLastSyncedAt = (): number | undefined => {
+	if (!canUseWindow()) {
+		return undefined;
+	}
+
+	try {
+		const raw = window.localStorage.getItem(LAST_SYNC_STORAGE_KEY);
+
+		if (!raw) {
+			return undefined;
+		}
+
+		const parsed = Number(raw);
+		return Number.isFinite(parsed) ? parsed : undefined;
+	} catch {
+		return undefined;
+	}
+};
+
+const writeLastSyncedAt = (timestamp?: number): void => {
+	if (!canUseWindow()) {
+		return;
+	}
+
+	try {
+		if (timestamp === undefined) {
+			window.localStorage.removeItem(LAST_SYNC_STORAGE_KEY);
+			return;
+		}
+
+		window.localStorage.setItem(LAST_SYNC_STORAGE_KEY, String(timestamp));
+	} catch {
+		// Ignore storage failures and continue with in-memory state.
+	}
+};
+
+const dedupeRecords = (records: SpringCalcRecord[]): SpringCalcRecord[] => {
+	const byId = new Map<string, SpringCalcRecord>();
+
+	for (const record of records) {
+		const existing = byId.get(record.id);
+
+		if (!existing || record.updatedAt >= existing.updatedAt) {
+			byId.set(record.id, record);
+		}
+	}
+
+	return Array.from(byId.values());
 };
 
 export class IndexedDBBackend implements StorageBackend {
@@ -112,16 +224,23 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 	private readonly syncEndpoint: string;
 	private readonly listeners = new Set<(status: SyncStatus) => void>();
 	private readonly queue: SyncOperation[];
+
 	private status: SyncStatus;
-	private syncTimer: number | null = null;
+	private syncTimer: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(localBackend: StorageBackend, syncEndpoint = "/api/v1/sync") {
 		this.localBackend = localBackend;
 		this.syncEndpoint = syncEndpoint;
 		this.queue = readQueuedOperations();
+
+		writeQueuedOperations(this.queue);
+
+		const lastSyncedAt = readLastSyncedAt();
+
 		this.status = {
 			state: this.queue.length > 0 ? "queued" : "idle",
 			pending: this.queue.length,
+			lastSyncedAt,
 		};
 
 		if (canUseWindow()) {
@@ -143,24 +262,70 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 
 	private setStatus(next: SyncStatus): void {
 		this.status = next;
+		writeLastSyncedAt(next.lastSyncedAt);
 		this.notify();
 	}
 
 	private enqueue(operation: SyncOperation): void {
 		this.queue.push(operation);
 		writeQueuedOperations(this.queue);
+
 		this.setStatus({
 			state: "queued",
 			pending: this.queue.length,
 			lastSyncedAt: this.status.lastSyncedAt,
 		});
+
 		void this.triggerBackgroundSync();
+	}
+
+	private async readSyncResponse(response: Response): Promise<SyncResponseData> {
+		let body: SyncResponseEnvelope | null = null;
+
+		try {
+			body = (await response.json()) as SyncResponseEnvelope;
+		} catch {
+			body = null;
+		}
+
+		if (!response.ok) {
+			if (body && !body.success) {
+				throw new Error(body.error.message);
+			}
+
+			throw new Error(`Sync failed with status ${response.status}`);
+		}
+
+		if (!body || !body.success) {
+			throw new Error("Sync response had an unexpected format.");
+		}
+
+		return body.data;
+	}
+
+	private async applySyncResponse(data: SyncResponseData): Promise<void> {
+		const conflictWinners = data.conflicts.map((conflict) => conflict.winner);
+
+		const recordsToUpsert = dedupeRecords([
+			...data.created,
+			...data.updated,
+			...conflictWinners,
+		]);
+
+		for (const record of recordsToUpsert) {
+			await this.localBackend.addCalculation(record);
+		}
+
+		if (data.deleted.length > 0) {
+			await this.localBackend.bulkDeleteCalculations(data.deleted);
+		}
 	}
 
 	private isOnline(): boolean {
 		if (!canUseWindow()) {
 			return false;
 		}
+
 		return window.navigator.onLine;
 	}
 
@@ -168,11 +333,12 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 		if (this.syncTimer !== null) {
 			return;
 		}
+
 		if (this.queue.length === 0 || !this.isOnline()) {
 			return;
 		}
 
-		this.syncTimer = window.setTimeout(() => {
+		this.syncTimer = setTimeout(() => {
 			this.syncTimer = null;
 			void this.flushQueue();
 		}, 250);
@@ -198,6 +364,7 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 		}
 
 		const batch = [...this.queue];
+
 		this.setStatus({
 			state: "syncing",
 			pending: batch.length,
@@ -216,18 +383,17 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 				}),
 			});
 
-			if (!response.ok) {
-				throw new Error(`Sync failed with status ${response.status}`);
-			}
+			const syncResponse = await this.readSyncResponse(response);
+
+			await this.applySyncResponse(syncResponse);
 
 			this.queue.splice(0, batch.length);
 			writeQueuedOperations(this.queue);
 
-			const syncedAt = Date.now();
 			this.setStatus({
 				state: this.queue.length > 0 ? "queued" : "idle",
 				pending: this.queue.length,
-				lastSyncedAt: syncedAt,
+				lastSyncedAt: syncResponse.newSyncTimestamp,
 			});
 
 			if (this.queue.length > 0) {
@@ -238,6 +404,7 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 				error instanceof Error
 					? error.message
 					: "Failed to sync queued changes.";
+
 			this.setStatus({
 				state: "error",
 				pending: this.queue.length,
@@ -254,6 +421,7 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 	subscribeSyncStatus(listener: (status: SyncStatus) => void): () => void {
 		this.listeners.add(listener);
 		listener(this.status);
+
 		return () => {
 			this.listeners.delete(listener);
 		};
@@ -275,14 +443,22 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 
 	async bulkDeleteCalculations(ids: string[]): Promise<void> {
 		await this.localBackend.bulkDeleteCalculations(ids);
+
 		if (ids.length > 0) {
 			this.enqueue({ type: "bulkDelete", ids: [...ids] });
 		}
 	}
 
 	async clearCalculations(): Promise<void> {
+		const records = await this.localBackend.listCalculations();
+
 		await this.localBackend.clearCalculations();
-		this.enqueue({ type: "clear" });
+
+		const ids = records.map((record) => record.id);
+
+		if (ids.length > 0) {
+			this.enqueue({ type: "bulkDelete", ids });
+		}
 	}
 }
 

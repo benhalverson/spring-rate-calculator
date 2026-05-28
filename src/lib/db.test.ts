@@ -1,3 +1,4 @@
+import Dexie, { type EntityTable } from "dexie";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { SpringCalcRecord } from "../types/spring";
@@ -29,9 +30,39 @@ const baseRecord = (
 	...overrides,
 });
 
+class TestSpringRateDatabase extends Dexie {
+	calculations!: EntityTable<SpringCalcRecord, "id">;
+
+	constructor() {
+		super("spring-rate-db");
+		this.version(3).stores({
+			calculations:
+				"id, createdAt, updatedAt, deletedAt, manufacturer, partNumber, [manufacturer+partNumber]",
+		});
+	}
+}
+
+const readAllStoredRecords = async (): Promise<SpringCalcRecord[]> => {
+	const db = new TestSpringRateDatabase();
+	try {
+		return await db.calculations.orderBy("createdAt").reverse().toArray();
+	} finally {
+		db.close();
+	}
+};
+
+const resetStoredRecords = async (): Promise<void> => {
+	const db = new TestSpringRateDatabase();
+	try {
+		await db.calculations.clear();
+	} finally {
+		db.close();
+	}
+};
+
 describe("db", () => {
 	beforeEach(async () => {
-		await clearCalculations();
+		await resetStoredRecords();
 	});
 
 	it("adds and lists calculations sorted by createdAt desc", async () => {
@@ -64,6 +95,12 @@ describe("db", () => {
 		const records = await listCalculations();
 		expect(records).toHaveLength(1);
 		expect(records[0]?.id).toBe("keep");
+
+		const storedRecords = await readAllStoredRecords();
+		expect(storedRecords).toHaveLength(2);
+		const removedRecord = storedRecords.find((record) => record.id === "remove");
+		expect(removedRecord?.deletedAt).not.toBeNull();
+		expect(removedRecord?.updatedAt).toBe(removedRecord?.deletedAt);
 	});
 
 	it("clears all calculations", async () => {
@@ -73,6 +110,10 @@ describe("db", () => {
 		await clearCalculations();
 
 		await expect(listCalculations()).resolves.toEqual([]);
+
+		const storedRecords = await readAllStoredRecords();
+		expect(storedRecords).toHaveLength(2);
+		expect(storedRecords.every((record) => record.deletedAt !== null)).toBe(true);
 	});
 
 	it("bulkDeleteCalculations does nothing with empty array", async () => {
@@ -97,6 +138,12 @@ describe("db", () => {
 		const records = await listCalculations();
 		expect(records).toHaveLength(1);
 		expect(records[0]?.id).toBe("keep");
+
+		const storedRecords = await readAllStoredRecords();
+		expect(storedRecords).toHaveLength(3);
+		expect(
+			storedRecords.filter((record) => record.deletedAt !== null).map((record) => record.id),
+		).toEqual(["remove-2", "remove-1"]);
 	});
 
 	it("bulkDeleteCalculations preserves non-selected records", async () => {
