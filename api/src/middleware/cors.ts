@@ -4,8 +4,11 @@ import type { Context, Next } from "hono";
  * CORS middleware configuration for production.
  * Allows requests from the production origin and common development origins.
  */
+const DEFAULT_ALLOWED_ORIGIN =
+	"https://spring-rate-calculator.benhalverson.workers.dev";
+
 const ALLOWED_ORIGINS = [
-	"https://spring-rate-calculator.benhalverson.workers.dev",
+	DEFAULT_ALLOWED_ORIGIN,
 	"http://localhost:5173", // Vite dev server
 	"http://localhost:4173", // Vite preview
 	"http://127.0.0.1:5173",
@@ -22,7 +25,9 @@ export async function corsMiddleware(c: Context, next: Next) {
 	// Handle preflight requests
 	if (c.req.method === "OPTIONS") {
 		const allowedOrigin =
-			origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+			origin && ALLOWED_ORIGINS.includes(origin)
+				? origin
+				: DEFAULT_ALLOWED_ORIGIN;
 
 		return c.body(null, 204, {
 			"Access-Control-Allow-Origin": allowedOrigin,
@@ -36,7 +41,9 @@ export async function corsMiddleware(c: Context, next: Next) {
 
 	// For actual requests, validate origin and add CORS headers
 	const allowedOrigin =
-		origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+		origin && ALLOWED_ORIGINS.includes(origin)
+			? origin
+			: DEFAULT_ALLOWED_ORIGIN;
 
 	// Set CORS headers
 	c.header("Access-Control-Allow-Origin", allowedOrigin);

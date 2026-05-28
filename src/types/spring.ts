@@ -13,6 +13,10 @@ export interface SpringCalcRecord {
 	id: string;
 	/** Creation timestamp in epoch milliseconds. */
 	createdAt: number;
+	/** Last update timestamp in epoch milliseconds. */
+	updatedAt: number;
+	/** Deletion timestamp in epoch milliseconds (null if not deleted). */
+	deletedAt: number | null;
 	/** Spring manufacturer name used for reorder tracking. */
 	manufacturer: string;
 	/** Manufacturer part number used for reorder tracking. */
