@@ -74,14 +74,16 @@ const toDeletedRecord = (
 	deletedAt,
 });
 
-const softDeleteRecords = async (ids: string[]): Promise<void> => {
+const softDeleteRecords = async (
+	ids: string[],
+	deletedAt = Date.now(),
+): Promise<void> => {
 	if (ids.length === 0) {
 		return;
 	}
 
 	await db.transaction("rw", db.calculations, async () => {
 		const records = await db.calculations.bulkGet(ids);
-		const deletedAt = Date.now();
 		const tombstones = records
 			.filter((record): record is SpringCalcRecord =>
 				Boolean(record && isActiveRecord(record)),
@@ -94,7 +96,7 @@ const softDeleteRecords = async (ids: string[]): Promise<void> => {
 	});
 };
 
-const softDeleteAllRecords = async (): Promise<void> => {
+const softDeleteAllRecords = async (deletedAt = Date.now()): Promise<void> => {
 	await db.transaction("rw", db.calculations, async () => {
 		const activeRecords = await db.calculations
 			.toCollection()
@@ -105,7 +107,6 @@ const softDeleteAllRecords = async (): Promise<void> => {
 			return;
 		}
 
-		const deletedAt = Date.now();
 		await db.calculations.bulkPut(
 			activeRecords.map((record) => toDeletedRecord(record, deletedAt)),
 		);
@@ -122,9 +123,9 @@ const indexedBackend = new IndexedDBBackend({
 			.reverse()
 			.filter(isActiveRecord)
 			.toArray(),
-	deleteOne: async (id) => softDeleteRecords([id]),
-	deleteMany: async (ids) => softDeleteRecords(ids),
-	clear: async () => softDeleteAllRecords(),
+	deleteOne: async (id, deletedAt) => softDeleteRecords([id], deletedAt),
+	deleteMany: async (ids, deletedAt) => softDeleteRecords(ids, deletedAt),
+	clear: async (deletedAt) => softDeleteAllRecords(deletedAt),
 });
 
 export const isCloudSyncEnabled =

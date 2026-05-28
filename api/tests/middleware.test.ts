@@ -5,6 +5,15 @@ import { rateLimitMiddleware } from "../src/middleware/rateLimit";
 import { securityHeadersMiddleware } from "../src/middleware/securityHeaders";
 import { getSessionId, sessionMiddleware } from "../src/middleware/session";
 
+type SessionTestResponse = {
+	sessionId: string;
+	isNewSession: boolean;
+};
+
+type SessionErrorResponse = {
+	error: string;
+};
+
 describe("CORS middleware", () => {
 	let app: Hono;
 
@@ -65,7 +74,7 @@ describe("Session middleware", () => {
 
 	it("generates a new session ID when none provided", async () => {
 		const res = await app.request("/test");
-		const body = await res.json();
+		const body = (await res.json()) as SessionTestResponse;
 		expect(body.sessionId).toMatch(
 			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
 		);
@@ -78,7 +87,7 @@ describe("Session middleware", () => {
 		const res = await app.request("/test", {
 			headers: { "X-Session-ID": validId },
 		});
-		const body = await res.json();
+		const body = (await res.json()) as SessionTestResponse;
 		expect(body.sessionId).toBe(validId);
 		expect(body.isNewSession).toBe(false);
 	});
@@ -88,7 +97,7 @@ describe("Session middleware", () => {
 			headers: { "X-Session-ID": "not-a-uuid" },
 		});
 		expect(res.status).toBe(400);
-		const body = await res.json();
+		const body = (await res.json()) as SessionErrorResponse;
 		expect(body.error).toContain("Invalid session ID format");
 	});
 
@@ -96,7 +105,7 @@ describe("Session middleware", () => {
 		const res = await app.request("/test", {
 			headers: { "X-Session-ID": "   " },
 		});
-		const body = await res.json();
+		const body = (await res.json()) as SessionTestResponse;
 		// Should generate a new one
 		expect(body.isNewSession).toBe(true);
 	});

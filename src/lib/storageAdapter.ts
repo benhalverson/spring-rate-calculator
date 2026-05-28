@@ -12,9 +12,9 @@ export interface SyncStatus {
 export interface StorageBackend {
 	addCalculation(record: SpringCalcRecord): Promise<void>;
 	listCalculations(): Promise<SpringCalcRecord[]>;
-	deleteCalculation(id: string): Promise<void>;
-	bulkDeleteCalculations(ids: string[]): Promise<void>;
-	clearCalculations(): Promise<void>;
+	deleteCalculation(id: string, deletedAt?: number): Promise<void>;
+	bulkDeleteCalculations(ids: string[], deletedAt?: number): Promise<void>;
+	clearCalculations(deletedAt?: number): Promise<void>;
 }
 
 interface SyncAwareBackend {
@@ -25,8 +25,8 @@ interface SyncAwareBackend {
 
 type SyncOperation =
 	| { type: "add"; record: SpringCalcRecord }
-	| { type: "delete"; id: string }
-	| { type: "bulkDelete"; ids: string[] };
+	| { type: "delete"; id: string; deletedAt: number }
+	| { type: "bulkDelete"; ids: string[]; deletedAt: number };
 
 type SyncConflict = {
 	id: string;
@@ -73,6 +73,7 @@ const isQueuedOperation = (value: unknown): value is SyncOperation => {
 		record?: unknown;
 		id?: unknown;
 		ids?: unknown;
+		deletedAt?: unknown;
 	};
 
 	if (operation.type === "add") {
@@ -80,13 +81,17 @@ const isQueuedOperation = (value: unknown): value is SyncOperation => {
 	}
 
 	if (operation.type === "delete") {
-		return typeof operation.id === "string";
+		return (
+			typeof operation.id === "string" &&
+			typeof operation.deletedAt === "number"
+		);
 	}
 
 	if (operation.type === "bulkDelete") {
 		return (
 			Array.isArray(operation.ids) &&
-			operation.ids.every((id) => typeof id === "string")
+			operation.ids.every((id) => typeof id === "string") &&
+			typeof operation.deletedAt === "number"
 		);
 	}
 
@@ -183,17 +188,17 @@ export class IndexedDBBackend implements StorageBackend {
 	private readonly methods: {
 		add: (record: SpringCalcRecord) => Promise<void>;
 		list: () => Promise<SpringCalcRecord[]>;
-		deleteOne: (id: string) => Promise<void>;
-		deleteMany: (ids: string[]) => Promise<void>;
-		clear: () => Promise<void>;
+		deleteOne: (id: string, deletedAt?: number) => Promise<void>;
+		deleteMany: (ids: string[], deletedAt?: number) => Promise<void>;
+		clear: (deletedAt?: number) => Promise<void>;
 	};
 
 	constructor(methods: {
 		add: (record: SpringCalcRecord) => Promise<void>;
 		list: () => Promise<SpringCalcRecord[]>;
-		deleteOne: (id: string) => Promise<void>;
-		deleteMany: (ids: string[]) => Promise<void>;
-		clear: () => Promise<void>;
+		deleteOne: (id: string, deletedAt?: number) => Promise<void>;
+		deleteMany: (ids: string[], deletedAt?: number) => Promise<void>;
+		clear: (deletedAt?: number) => Promise<void>;
 	}) {
 		this.methods = methods;
 	}
@@ -206,16 +211,16 @@ export class IndexedDBBackend implements StorageBackend {
 		return this.methods.list();
 	}
 
-	deleteCalculation(id: string): Promise<void> {
-		return this.methods.deleteOne(id);
+	deleteCalculation(id: string, deletedAt?: number): Promise<void> {
+		return this.methods.deleteOne(id, deletedAt);
 	}
 
-	bulkDeleteCalculations(ids: string[]): Promise<void> {
-		return this.methods.deleteMany(ids);
+	bulkDeleteCalculations(ids: string[], deletedAt?: number): Promise<void> {
+		return this.methods.deleteMany(ids, deletedAt);
 	}
 
-	clearCalculations(): Promise<void> {
-		return this.methods.clear();
+	clearCalculations(deletedAt?: number): Promise<void> {
+		return this.methods.clear(deletedAt);
 	}
 }
 
@@ -226,7 +231,7 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 	private readonly queue: SyncOperation[];
 
 	private status: SyncStatus;
-	private syncTimer: ReturnType<typeof setTimeout> | null = null;
+	private syncPromise: Promise<void> | null = null;
 
 	constructor(localBackend: StorageBackend, syncEndpoint = "/api/v1/sync") {
 		this.localBackend = localBackend;
@@ -249,9 +254,7 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 			});
 		}
 
-		if (this.queue.length > 0) {
-			void this.triggerBackgroundSync();
-		}
+		void this.triggerBackgroundSync();
 	}
 
 	private notify(): void {
@@ -331,31 +334,35 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 		return window.navigator.onLine;
 	}
 
-	async triggerBackgroundSync(): Promise<void> {
-		if (this.syncTimer !== null) {
-			return;
+	triggerBackgroundSync(): Promise<void> {
+		if (this.syncPromise) {
+			return this.syncPromise;
 		}
 
-		if (this.queue.length === 0 || !this.isOnline()) {
-			return;
+		if (!this.isOnline()) {
+			if (this.queue.length > 0) {
+				this.setStatus({
+					state: "queued",
+					pending: this.queue.length,
+					lastSyncedAt: this.status.lastSyncedAt,
+				});
+			}
+			return Promise.resolve();
 		}
 
-		this.syncTimer = setTimeout(() => {
-			this.syncTimer = null;
-			void this.flushQueue();
-		}, 250);
+		this.syncPromise = new Promise((resolve) => {
+			setTimeout(() => {
+				void this.flushQueue().finally(() => {
+					this.syncPromise = null;
+					resolve();
+				});
+			}, 250);
+		});
+
+		return this.syncPromise;
 	}
 
 	private async flushQueue(): Promise<void> {
-		if (this.queue.length === 0) {
-			this.setStatus({
-				state: "idle",
-				pending: 0,
-				lastSyncedAt: this.status.lastSyncedAt,
-			});
-			return;
-		}
-
 		if (!this.isOnline()) {
 			this.setStatus({
 				state: "queued",
@@ -439,27 +446,30 @@ export class HybridBackend implements StorageBackend, SyncAwareBackend {
 	}
 
 	async deleteCalculation(id: string): Promise<void> {
-		await this.localBackend.deleteCalculation(id);
-		this.enqueue({ type: "delete", id });
+		const deletedAt = Date.now();
+		await this.localBackend.deleteCalculation(id, deletedAt);
+		this.enqueue({ type: "delete", id, deletedAt });
 	}
 
 	async bulkDeleteCalculations(ids: string[]): Promise<void> {
-		await this.localBackend.bulkDeleteCalculations(ids);
+		const deletedAt = Date.now();
+		await this.localBackend.bulkDeleteCalculations(ids, deletedAt);
 
 		if (ids.length > 0) {
-			this.enqueue({ type: "bulkDelete", ids: [...ids] });
+			this.enqueue({ type: "bulkDelete", ids: [...ids], deletedAt });
 		}
 	}
 
 	async clearCalculations(): Promise<void> {
 		const records = await this.localBackend.listCalculations();
+		const deletedAt = Date.now();
 
-		await this.localBackend.clearCalculations();
+		await this.localBackend.clearCalculations(deletedAt);
 
 		const ids = records.map((record) => record.id);
 
 		if (ids.length > 0) {
-			this.enqueue({ type: "bulkDelete", ids });
+			this.enqueue({ type: "bulkDelete", ids, deletedAt });
 		}
 	}
 }
